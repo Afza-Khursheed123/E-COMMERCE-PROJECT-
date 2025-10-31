@@ -1,4 +1,3 @@
-// src/pages/login.jsx
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Navbar from "../components/navbar/navbar.jsx";
@@ -23,7 +22,14 @@ const Login = () => {
 
       if (data.success) {
         setMessage("✅ Login successful!");
-        setTimeout(() => navigate("/"), 1500); // redirect after 1.5 seconds
+
+        // ✅ Redirect based on role
+        setTimeout(() => {
+          const role = data.user.role.toLowerCase();
+          if (role === "admin") navigate("/adminhomepage");
+          else if (role === "seller") navigate("/sellerhomepage");
+          else navigate("/buyerhomepage");
+        }, 1200);
       } else {
         setMessage("❌ Invalid credentials");
       }

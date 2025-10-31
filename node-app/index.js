@@ -3,6 +3,9 @@ import cors from "cors";
 import { connectToDatabase } from "./connect.js";
 import loginRoute from "./routes/login.js";
 import signupRoute from "./routes/signup.js";
+import homeRoute from "./routes/home.js";
+import categoryRoute from "./routes/category.js";
+import productRoute from "./routes/product.js";
 const app = express();
 const port = 3000;
 
@@ -24,9 +27,13 @@ async function startServer() {
     console.log("✅ Connected to MongoDB Atlas");
 
     // ✅ Attach routes and pass the db instance to them
+  
+
+     app.use("/home", homeRoute(db));
+ app.use("/products", productRoute(db));
+app.use("/category", categoryRoute(db));
     app.use("/login", loginRoute(db));
     app.use("/signup", signupRoute(db));
-
     app.listen(port, () => console.log(`🚀 Server running on http://localhost:${port}`));
   } catch (err) {
     console.error("❌ Failed to start server:", err);

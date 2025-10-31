@@ -8,6 +8,7 @@ const Signup = () => {
     name: "",
     email: "",
     password: "",
+    role: "user", // default role
   });
   const [message, setMessage] = useState("");
 
@@ -30,7 +31,12 @@ const Signup = () => {
 
       if (data.success) {
         setMessage("✅ Signup successful!");
-        setTimeout(() => navigate("/"), 1500); // redirect after 1.5 sec
+        setTimeout(() => {
+          if (data.role === "admin") navigate("/adminhomepage");
+          else if (data.role === "seller") navigate("/sellerhomepage");
+          else if (data.role === "buyer") navigate("/buyerhomepage");
+          else navigate("/login"); // default redirect
+        }, 1500);
       } else {
         setMessage("❌ " + (data.message || "Signup failed"));
       }
@@ -45,9 +51,8 @@ const Signup = () => {
       <Navbar />
       <div className="max-w-sm mx-auto mt-8">
         <form onSubmit={handleSubmit}>
-          <label className="block mb-2 text-sm font-medium text-gray-900">
-            Full Name
-          </label>
+          {/* Full Name */}
+          <label className="block mb-2 text-sm font-medium text-gray-900">Full Name</label>
           <input
             id="name"
             type="text"
@@ -57,9 +62,8 @@ const Signup = () => {
             required
           />
 
-          <label className="block mb-2 text-sm font-medium text-gray-900">
-            Email
-          </label>
+          {/* Email */}
+          <label className="block mb-2 text-sm font-medium text-gray-900">Email</label>
           <input
             id="email"
             type="email"
@@ -69,9 +73,8 @@ const Signup = () => {
             required
           />
 
-          <label className="block mb-2 text-sm font-medium text-gray-900">
-            Password
-          </label>
+          {/* Password */}
+          <label className="block mb-2 text-sm font-medium text-gray-900">Password (min 8 chars)</label>
           <input
             id="password"
             type="password"
@@ -79,7 +82,22 @@ const Signup = () => {
             value={formData.password}
             onChange={handleChange}
             required
+            minLength={8}
           />
+
+          {/* Role */}
+          <label className="block mb-2 text-sm font-medium text-gray-900">Select Role</label>
+          <select
+            id="role"
+            className="border border-gray-300 p-2 w-full rounded mb-4"
+            value={formData.role}
+            onChange={handleChange}
+          >
+            <option value="user">User</option>
+            <option value="buyer">Buyer</option>
+            <option value="seller">Seller</option>
+            <option value="admin">Admin</option>
+          </select>
 
           <button
             type="submit"
