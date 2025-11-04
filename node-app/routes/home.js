@@ -21,7 +21,7 @@ export default function homeRoute(db) {
         recentlyAdded
       });
     } catch (err) {
-      console.error("❌ Home route error:", err);
+      console.error(" Home route error:", err);
       res.status(500).json({ message: "Server error" });
     }
   });

@@ -30,15 +30,15 @@ const Signup = () => {
       const data = await res.json();
 
       if (data.success) {
-        setMessage("✅ Signup successful!");
+        setMessage("    Signup successful!");
         setTimeout(() => {
           if (data.role === "admin") navigate("/adminhomepage");
           else if (data.role === "seller") navigate("/sellerhomepage");
-          else if (data.role === "buyer") navigate("/buyerhomepage");
+          else if (data.role === "buyer") navigate("/sellerhomepage");
           else navigate("/login"); // default redirect
         }, 1500);
       } else {
-        setMessage("❌ " + (data.message || "Signup failed"));
+        setMessage("    " + (data.message || "Signup failed"));
       }
     } catch (err) {
       console.error(err);

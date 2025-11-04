@@ -20,7 +20,7 @@ function CategoryPage() {
         setData(res.data);
         setFiltered(res.data.results || []);
       } catch (error) {
-        console.error("❌ Category fetch error:", error);
+        console.error("    Category fetch error:", error);
       } finally {
         setLoading(false);
       }
