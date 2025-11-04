@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   SearchIcon,
   AlertCircleIcon,
@@ -12,59 +12,8 @@ export function ComplaintMgt() {
   const [searchTerm, setSearchTerm] = useState("");
   const [priorityFilter, setPriorityFilter] = useState("all");
   const [showForm, setShowForm] = useState(false);
-
-  const [complaints, setComplaints] = useState([
-    {
-      id: 1,
-      ticketId: "#C1001",
-      user: "Alice Cooper",
-      orderId: "#1001",
-      subject: "Item not as described",
-      priority: "High",
-      status: "Open",
-      date: "2024-03-18",
-    },
-    {
-      id: 2,
-      ticketId: "#C1002",
-      user: "Bob Smith",
-      orderId: "#1002",
-      subject: "Delayed delivery",
-      priority: "Medium",
-      status: "In Progress",
-      date: "2024-03-17",
-    },
-    {
-      id: 3,
-      ticketId: "#C1003",
-      user: "Carol White",
-      orderId: "#1003",
-      subject: "Payment issue",
-      priority: "High",
-      status: "Open",
-      date: "2024-03-17",
-    },
-    {
-      id: 4,
-      ticketId: "#C1004",
-      user: "David Lee",
-      orderId: "#1004",
-      subject: "Wrong item received",
-      priority: "High",
-      status: "Resolved",
-      date: "2024-03-16",
-    },
-    {
-      id: 5,
-      ticketId: "#C1005",
-      user: "Emma Davis",
-      orderId: "#1005",
-      subject: "Refund request",
-      priority: "Low",
-      status: "In Progress",
-      date: "2024-03-15",
-    },
-  ]);
+  const [complaints, setComplaints] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   const [newComplaint, setNewComplaint] = useState({
     user: "",
@@ -75,56 +24,113 @@ export function ComplaintMgt() {
     date: new Date().toISOString().split("T")[0],
   });
 
-  // Add Complaint Function
-  const handleAddComplaint = (e) => {
+  // 🟢 Fetch complaints
+  const fetchComplaints = async () => {
+    try {
+      const res = await fetch("http://localhost:3000/admin/complain");
+      const data = await res.json();
+      if (data.success && Array.isArray(data.complains)) {
+        setComplaints(data.complains);
+      } else {
+        console.error("Unexpected data format:", data);
+      }
+    } catch (err) {
+      console.error("❌ Error fetching complaints:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchComplaints();
+  }, []);
+
+  // 🟡 Add new complaint
+  const handleAddComplaint = async (e) => {
     e.preventDefault();
-    const newId = complaints.length + 1;
-    const newTicketId = `#C${1000 + newId}`;
-    setComplaints([
-      { id: newId, ticketId: newTicketId, ...newComplaint },
-      ...complaints,
-    ]);
-    setShowForm(false);
-    setNewComplaint({
-      user: "",
-      orderId: "",
-      subject: "",
-      priority: "Low",
-      status: "Open",
-      date: new Date().toISOString().split("T")[0],
-    });
+    try {
+      const res = await fetch("http://localhost:3000/admin/complain", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(newComplaint),
+      });
+
+      const data = await res.json();
+      if (res.ok && data.success) {
+        // ✅ Re-fetch complaints to auto-refresh list
+        await fetchComplaints();
+        setShowForm(false);
+        setNewComplaint({
+          user: "",
+          orderId: "",
+          subject: "",
+          priority: "Low",
+          status: "Open",
+          date: new Date().toISOString().split("T")[0],
+        });
+      } else {
+        console.error("❌ Failed to add complaint:", data.message);
+      }
+    } catch (err) {
+      console.error("❌ Error adding complaint:", err);
+    }
   };
 
-  // Change status
-  const handleStatusChange = (id, newStatus) => {
-    setComplaints((prev) =>
-      prev.map((c) => (c.id === id ? { ...c, status: newStatus } : c))
-    );
+  // 🔵 Change status
+  const handleStatusChange = async (_id, newStatus) => {
+    try {
+      const res = await fetch(`http://localhost:3000/admin/complain/${_id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: newStatus }),
+      });
+
+      if (res.ok) {
+        setComplaints((prev) =>
+          prev.map((c) => (c._id === _id ? { ...c, status: newStatus } : c))
+        );
+      }
+    } catch (err) {
+      console.error("Error updating status:", err);
+    }
   };
 
-  // Change priority
-  const handlePriorityChange = (id, newPriority) => {
-    setComplaints((prev) =>
-      prev.map((c) => (c.id === id ? { ...c, priority: newPriority } : c))
-    );
+  // 🔴 Change priority
+  const handlePriorityChange = async (_id, newPriority) => {
+    try {
+      const res = await fetch(`http://localhost:3000/admin/complain/${_id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ priority: newPriority }),
+      });
+
+      if (res.ok) {
+        setComplaints((prev) =>
+          prev.map((c) => (c._id === _id ? { ...c, priority: newPriority } : c))
+        );
+      }
+    } catch (err) {
+      console.error("Error updating priority:", err);
+    }
   };
 
-  // Filtered Data
+  // 🟣 Filter complaints
   const filteredComplaints = complaints.filter(
     (complaint) =>
       (priorityFilter === "all" ||
         complaint.priority.toLowerCase() === priorityFilter) &&
-      (complaint.user.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        complaint.subject.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        complaint.ticketId.toLowerCase().includes(searchTerm.toLowerCase()))
+      (complaint.user?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        complaint.subject?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        complaint._id?.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
-  // Complaint Counts
   const openCount = complaints.filter((c) => c.status === "Open").length;
   const inProgressCount = complaints.filter(
     (c) => c.status === "In Progress"
   ).length;
   const resolvedCount = complaints.filter((c) => c.status === "Resolved").length;
+
+  if (loading) return <p className="text-center mt-10">Loading complaints...</p>;
 
   return (
     <div className="p-6">
@@ -179,7 +185,7 @@ export function ComplaintMgt() {
         </div>
       </div>
 
-      {/* Add Complaint Modal */}
+      {/* Modal */}
       {showForm && (
         <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50">
           <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-md relative">
@@ -260,7 +266,7 @@ export function ComplaintMgt() {
         </div>
       )}
 
-      {/* Search + Filter */}
+      {/* Search + Table */}
       <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
         <div className="p-6 border-b border-gray-200 flex flex-col md:flex-row gap-4">
           <div className="flex-1 relative">
@@ -280,7 +286,7 @@ export function ComplaintMgt() {
           <select
             value={priorityFilter}
             onChange={(e) => setPriorityFilter(e.target.value)}
-            className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-gray-700"
+            className="px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500"
           >
             <option value="all">All Priorities</option>
             <option value="high">High</option>
@@ -289,7 +295,6 @@ export function ComplaintMgt() {
           </select>
         </div>
 
-        {/* Table */}
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead className="bg-gray-50 border-b border-gray-200">
@@ -315,9 +320,9 @@ export function ComplaintMgt() {
 
             <tbody className="bg-white divide-y divide-gray-200">
               {filteredComplaints.map((complaint) => (
-                <tr key={complaint.id} className="hover:bg-gray-50">
+                <tr key={complaint._id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 text-sm font-medium text-blue-600">
-                    {complaint.ticketId}
+                    {complaint._id}
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-900">
                     {complaint.user}
@@ -329,14 +334,13 @@ export function ComplaintMgt() {
                     {complaint.subject}
                   </td>
 
-                  {/* PRIORITY DROPDOWN */}
                   <td className="px-6 py-4 whitespace-nowrap">
                     <select
                       value={complaint.priority}
                       onChange={(e) =>
-                        handlePriorityChange(complaint.id, e.target.value)
+                        handlePriorityChange(complaint._id, e.target.value)
                       }
-                      className={`px-3 py-1 text-xs font-semibold rounded-full focus:outline-none cursor-pointer transition-colors duration-200
+                      className={`px-3 py-1 text-xs font-semibold rounded-full cursor-pointer
                         ${
                           complaint.priority === "High"
                             ? "bg-red-100 text-red-800"
@@ -345,26 +349,19 @@ export function ComplaintMgt() {
                             : "bg-gray-100 text-gray-800"
                         }`}
                     >
-                      <option value="High" className="bg-white text-gray-800">
-                        High
-                      </option>
-                      <option value="Medium" className="bg-white text-gray-800">
-                        Medium
-                      </option>
-                      <option value="Low" className="bg-white text-gray-800">
-                        Low
-                      </option>
+                      <option value="High">High</option>
+                      <option value="Medium">Medium</option>
+                      <option value="Low">Low</option>
                     </select>
                   </td>
 
-                  {/* STATUS DROPDOWN */}
                   <td className="px-6 py-4 whitespace-nowrap">
                     <select
                       value={complaint.status}
                       onChange={(e) =>
-                        handleStatusChange(complaint.id, e.target.value)
+                        handleStatusChange(complaint._id, e.target.value)
                       }
-                      className={`px-3 py-1 text-xs font-semibold rounded-full focus:outline-none cursor-pointer transition-colors duration-200
+                      className={`px-3 py-1 text-xs font-semibold rounded-full cursor-pointer
                         ${
                           complaint.status === "Resolved"
                             ? "bg-green-100 text-green-800"
@@ -373,18 +370,9 @@ export function ComplaintMgt() {
                             : "bg-orange-100 text-orange-800"
                         }`}
                     >
-                      <option value="Open" className="bg-white text-gray-800">
-                        Open
-                      </option>
-                      <option
-                        value="In Progress"
-                        className="bg-white text-gray-800"
-                      >
-                        In Progress
-                      </option>
-                      <option value="Resolved" className="bg-white text-gray-800">
-                        Resolved
-                      </option>
+                      <option value="Open">Open</option>
+                      <option value="In Progress">In Progress</option>
+                      <option value="Resolved">Resolved</option>
                     </select>
                   </td>
 
