@@ -1,0 +1,9 @@
+{
+  "dependencies": {
+    "dotenv": "^17.2.3",
+    "dotnet": "^1.1.4",
+    "express": "^5.1.0",
+    "mongoose": "^8.19.2",
+    "react-router-dom": "^7.9.4"
+  }
+}
