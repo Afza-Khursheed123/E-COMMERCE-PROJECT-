@@ -4,6 +4,7 @@ import { connectToDatabase } from "./connect.js";
 import loginRoute from "./routes/login.js";
 import signupRoute from "./routes/signup.js";
 import complainRoute from "./routes/complainRoute.js";
+import userMgtRoute from "./routes/userMgtRoute.js";
 
 
 const app = express();
@@ -31,6 +32,7 @@ async function startServer() {
     app.use("/login", loginRoute(db));
     app.use("/signup", signupRoute(db));
     app.use("/admin/complain", complainRoute(db));
+    app.use("/admin/users", userMgtRoute(db));
 
     app.listen(port, () => console.log(`🚀 Server running on http://localhost:${port}`));
   } catch (err) {
