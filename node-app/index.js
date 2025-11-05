@@ -6,6 +6,7 @@ import signupRoute from "./routes/signup.js";
 import complainRoute from "./routes/complainRoute.js";
 import userMgtRoute from "./routes/userMgtRoute.js";
 import paymentRoute from "./routes/paymentRoute.js";
+import orderMgtRoute from "./routes/orderMgtRoute.js";
 
 
 const app = express();
@@ -35,6 +36,7 @@ async function startServer() {
     app.use("/admin/complain", complainRoute(db));
     app.use("/admin/users", userMgtRoute(db));
     app.use("/admin/payment", paymentRoute(db));
+    app.use("/admin/orders", orderMgtRoute(db));
 
     app.listen(port, () => console.log(`🚀 Server running on http://localhost:${port}`));
   } catch (err) {
