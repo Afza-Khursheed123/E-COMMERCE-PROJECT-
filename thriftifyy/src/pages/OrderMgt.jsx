@@ -1,27 +1,75 @@
-import React, { useState } from "react";
-import { Search, Filter } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { Search, Filter, Trash2 } from "lucide-react";
 
 export function OrderMgt() {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [orders, setOrders] = useState([]);
 
-  const [orders, setOrders] = useState([
-    { id: "#1001", seller: "John Doe", buyer: "Alice Cooper", product: "Vintage Camera", amount: 250, status: "Delivered", date: "2024-03-15" },
-    { id: "#1002", seller: "Mike Johnson", buyer: "Bob Smith", product: "Gaming Console", amount: 180, status: "Shipped", date: "2024-03-16" },
-    { id: "#1003", seller: "Tom Brown", buyer: "Carol White", product: "Designer Watch", amount: 420, status: "Delivered", date: "2024-03-16" },
-    { id: "#1004", seller: "John Doe", buyer: "David Lee", product: "Headphones", amount: 95, status: "Processing", date: "2024-03-17" },
-    { id: "#1005", seller: "Tom Brown", buyer: "Emma Davis", product: "Laptop", amount: 310, status: "Delivered", date: "2024-03-17" },
-    { id: "#1006", seller: "Mike Johnson", buyer: "Frank Miller", product: "Smartphone", amount: 275, status: "Cancelled", date: "2024-03-18" },
-  ]);
+  // Fetch all orders from backend
+  useEffect(() => {
+    fetchOrders();
+  }, []);
+
+  const fetchOrders = async () => {
+    try {
+      const res = await fetch("http://localhost:3000/admin/orders");
+      const data = await res.json();
+      console.log("Fetched orders:", data);
+      setOrders(data);
+    } catch (err) {
+      console.error("Error fetching orders:", err);
+      alert("Failed to fetch orders");
+    }
+  };
 
   // Function to update order status
-  const handleStatusChange = (id, newStatus) => {
-    setOrders(prevOrders =>
-      prevOrders.map(order =>
-        order.id === id ? { ...order, status: newStatus } : order
-      )
-    );
-    // Here, you can also call an API to update the status in the backend
+  const handleStatusChange = async (orderId, newStatus) => {
+    try {
+      const res = await fetch(`http://localhost:3000/admin/orders/${orderId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: newStatus }),
+      });
+
+      if (res.ok) {
+        setOrders(prevOrders =>
+          prevOrders.map(order =>
+            order.orderId === orderId ? { ...order, status: newStatus } : order
+          )
+        );
+      } else {
+        console.error("Failed to update order status");
+      }
+    } catch (err) {
+      console.error("Error updating status:", err);
+    }
+  };
+
+  // Delete order
+  const handleDelete = async (orderId) => {
+    if (!window.confirm("Are you sure you want to delete this order?")) return;
+
+    try {
+      const res = await fetch(`http://localhost:3000/admin/orders/${orderId}`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" }
+      });
+
+      console.log("Delete response status:", res.status);
+
+      if (res.ok || res.status === 204) {
+        setOrders((prev) => prev.filter((order) => order.orderId !== orderId));
+        alert("Order deleted successfully!");
+      } else {
+        const errorData = await res.text();
+        console.error("Delete failed:", errorData);
+        alert(`Failed to delete order. Status: ${res.status}`);
+      }
+    } catch (err) {
+      console.error("Error deleting order:", err);
+      alert("Network error while deleting order.");
+    }
   };
 
   return (
@@ -65,7 +113,7 @@ export function OrderMgt() {
           <table className="w-full">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
-                {["Order ID", "Product", "Seller", "Buyer", "Amount", "Status", "Date"].map((heading) => (
+                {["Order ID", "Product", "Seller", "Buyer", "Amount", "Status", "Date", "Actions"].map((heading) => (
                   <th key={heading} className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     {heading}
                   </th>
@@ -77,27 +125,32 @@ export function OrderMgt() {
               {orders
                 .filter(order =>
                   (statusFilter === "all" || order.status === statusFilter) &&
-                  (order.product.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                    order.seller.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                    order.buyer.toLowerCase().includes(searchTerm.toLowerCase()))
+                  (order.productName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                    order.sellerName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                    order.buyerName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                    order.orderId?.toLowerCase().includes(searchTerm.toLowerCase()))
                 )
                 .map(order => (
-                  <tr key={order.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-blue-600">{order.id}</td>
-                    <td className="px-6 py-4 text-sm text-gray-900">{order.product}</td>
-                    <td className="px-6 py-4 text-sm text-gray-900">{order.seller}</td>
-                    <td className="px-6 py-4 text-sm text-gray-900">{order.buyer}</td>
-                    <td className="px-6 py-4 text-sm font-semibold text-gray-900">${order.amount}</td>
+                  <tr key={order.orderId} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-blue-600">
+                      {order.orderId}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-900">{order.productName || "N/A"}</td>
+                    <td className="px-6 py-4 text-sm text-gray-900">{order.sellerName || "N/A"}</td>
+                    <td className="px-6 py-4 text-sm text-gray-900">{order.buyerName || "N/A"}</td>
+                    <td className="px-6 py-4 text-sm font-semibold text-gray-900">
+                      ${parseFloat(order.amount || 0).toFixed(2)}
+                    </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <select
-                        value={order.status}
-                        onChange={(e) => handleStatusChange(order.id, e.target.value)}
-                        className={`px-3 py-1 text-xs font-semibold rounded-full cursor-pointer
-                        ${order.status === "Delivered"
+                        value={order.status || "Processing"}
+                        onChange={(e) => handleStatusChange(order.orderId, e.target.value)}
+                        className={`px-3 py-1 text-xs font-semibold rounded-full cursor-pointer focus:outline-none
+                        ${(order.status || "Processing") === "Delivered"
                             ? "bg-green-100 text-green-800"
-                            : order.status === "Shipped"
+                            : (order.status || "Processing") === "Shipped"
                               ? "bg-blue-100 text-blue-800"
-                              : order.status === "Processing"
+                              : (order.status || "Processing") === "Processing"
                                 ? "bg-yellow-100 text-yellow-800"
                                 : "bg-red-100 text-red-800"
                           }`}
@@ -108,8 +161,17 @@ export function OrderMgt() {
                         <option value="Cancelled">Cancelled</option>
                       </select>
                     </td>
-
-                    <td className="px-6 py-4 text-sm text-gray-500">{order.date}</td>
+                    <td className="px-6 py-4 text-sm text-gray-500">
+                      {order.date ? order.date.split("T")[0] : "N/A"}
+                    </td>
+                    <td className="px-6 py-4 text-sm">
+                      <button 
+                        onClick={() => handleDelete(order.orderId)} 
+                        className="text-red-600 hover:text-red-800"
+                      >
+                        <Trash2 size={18} />
+                      </button>
+                    </td>
                   </tr>
                 ))}
             </tbody>
