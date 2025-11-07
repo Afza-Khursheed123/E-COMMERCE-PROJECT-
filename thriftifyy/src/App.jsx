@@ -1,8 +1,9 @@
-// src/App.jsx
+// App.jsx
 import { Routes, Route } from "react-router-dom";
 import Home from "./pages/Home.jsx";
 import Login from "./pages/login.jsx";
 import Signup from "./pages/signup.jsx";
+import AdminLayout from "./admin/Admin.jsx"; // your admin panel component
 
 function App() {
   return (
@@ -10,6 +11,7 @@ function App() {
       <Route path="/" element={<Home />} />
       <Route path="/login" element={<Login />} />
       <Route path="/signup" element={<Signup />} />
+      <Route path="/admin/*" element={<AdminLayout />} />
     </Routes>
   );
 }
