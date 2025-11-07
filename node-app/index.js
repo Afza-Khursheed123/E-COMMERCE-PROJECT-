@@ -3,8 +3,16 @@ import cors from "cors";
 import { connectToDatabase } from "./connect.js";
 import loginRoute from "./routes/login.js";
 import signupRoute from "./routes/signup.js";
+import complainRoute from "./routes/complainRoute.js";
+import userMgtRoute from "./routes/userMgtRoute.js";
+import paymentRoute from "./routes/paymentRoute.js";
+import orderMgtRoute from "./routes/orderMgtRoute.js";
+import dashboardRoute from "./routes/dashboardRoute.js";
+
+
 const app = express();
 const port = 3000;
+
 
 // ✅ Middleware
 app.use(cors({ origin: "http://localhost:5173", credentials: true }));
@@ -19,13 +27,18 @@ app.use((req, res, next) => {
 });
 
 async function startServer() {
-   try {
+  try {
     const db = await connectToDatabase();
     console.log("✅ Connected to MongoDB Atlas");
-
+    
     // ✅ Attach routes and pass the db instance to them
     app.use("/login", loginRoute(db));
     app.use("/signup", signupRoute(db));
+    app.use("/admin/complain", complainRoute(db));
+    app.use("/admin/users", userMgtRoute(db));
+    app.use("/admin/payment", paymentRoute(db));
+    app.use("/admin/orders", orderMgtRoute(db));
+    app.use("/admin/dashboard", dashboardRoute(db));
 
     app.listen(port, () => console.log(`🚀 Server running on http://localhost:${port}`));
   } catch (err) {
