@@ -1,168 +1,101 @@
 import express from "express";
-import { ObjectId } from "mongodb";
 const router = express.Router();
 
 export default function (db) {
-  // ✅ 1. GET — Fetch all payments from Payments collection
+  // ✅ 1. GET — Fetch all payments with order details
   router.get("/", async (req, res) => {
     try {
-      // Fetch directly from Payments collection
-      const result = await db.collection("Payments").find({}).toArray();
+      // Map orders to payment format with user and product details
+      const paymentData = orders.map(order => {
+        const orderIdStr = order._id?.toString();
+        const buyer = users.find(u => u._id?.toString() === order.userId?.toString());
+        const product = products.find(p => p._id?.toString() === order.productId?.toString());
+        const seller = users.find(u => u._id?.toString() === product?.userId?.toString());
+        
+        // Find existing payment record for this order
+        const existingPayment = payments.find(p => p.orderId === orderIdStr);
 
-      // Format the response
-      const formattedResult = result.map(payment => ({
-        orderId: payment.orderId || payment._id.toString(),
-        sellerName: payment.sellerName || "",
-        buyerName: payment.buyerName || "",
-        totalAmount: parseFloat(payment.totalAmount) || 0,
-        status: payment.status || "Pending",
-        createdAt: payment.createdAt || new Date().toISOString()
-      }));
+        return {
+          orderId: orderIdStr,
+          sellerName: seller?.name || product?.userName || "Unknown Seller",
+          buyerName: buyer?.name || "Unknown Buyer",
+          productName: product?.name || "Unknown Product",
+          totalAmount: parseFloat(order.totalAmount) || 0,
+          // Use payment status if exists, otherwise default to Pending
+          status: existingPayment?.status || "Pending",
+          createdAt: order.createdAt || new Date().toISOString()
+        };
+      });
 
-      res.json(formattedResult);
+      console.log("Payment data prepared:", paymentData.length);
+      res.json(paymentData);
     } catch (err) {
       console.error("❌ Error fetching payments:", err);
-      res.status(500).json({ error: "Internal server error" });
+      res.status(500).json({ 
+        error: "Internal server error",
+        message: err.message,
+        stack: err.stack
+      });
     }
   });
 
-  // ✅ 2. POST — Add a new payment manually
-  router.post("/sync", async (req, res) => {
-    try {
-      const { orderId, sellerName, buyerName, totalAmount, status, createdAt } = req.body;
-
-      // Validate required fields
-      if (!orderId || !sellerName || !buyerName || !totalAmount) {
-        return res.status(400).json({ error: "Missing required fields" });
-      }
-
-      const newPayment = {
-        orderId,
-        sellerName,
-        buyerName,
-        totalAmount: parseFloat(totalAmount),
-        status: status || "Pending",
-        createdAt: createdAt || new Date().toISOString()
-      };
-
-      const result = await db.collection("Payments").insertOne(newPayment);
-
-      // Return the inserted document with _id
-      const insertedPayment = {
-        _id: result.insertedId,
-        ...newPayment
-      };
-
-      res.status(201).json(insertedPayment);
-    } catch (err) {
-      console.error("❌ Error adding payment:", err);
-      res.status(500).json({ error: "Internal server error" });
-    }
-  });
-
-  // ✅ 3. POST — Sync all orders into Payments collection (bulk sync)
-  router.post("/sync-all", async (req, res) => {
-    try {
-      await db.collection("Payments").deleteMany({}); // optional reset
-
-      await db.collection("Orders").aggregate([
-        {
-          $lookup: {
-            from: "Products",
-            localField: "productId",
-            foreignField: "_id",
-            as: "productInfo"
-          }
-        },
-        { $unwind: "$productInfo" },
-        {
-          $lookup: {
-            from: "User",
-            localField: "userId",
-            foreignField: "_id",
-            as: "buyerInfo"
-          }
-        },
-        { $unwind: "$buyerInfo" },
-        {
-          $project: {
-            _id: 0,
-            orderId: "$_id",
-            productName: "$productInfo.name",
-            price: "$productInfo.price",
-            sellerName: "$productInfo.userName",
-            buyerName: "$buyerInfo.name",
-            totalAmount: "$totalAmount",
-            status: 1,
-            createdAt: 1
-          }
-        },
-        {
-          $merge: {
-            into: "Payments",
-            whenMatched: "replace",
-            whenNotMatched: "insert"
-          }
-        }
-      ]).toArray();
-
-      res.json({ message: "✅ Payments synced successfully!" });
-    } catch (err) {
-      console.error("❌ Error syncing payments:", err);
-      res.status(500).json({ error: "Internal server error" });
-    }
-  });
-
-  // ✅ 4. PATCH — Update a single payment record
+  // ✅ 2. PATCH — Update payment status (not order status)
   router.patch("/:id", async (req, res) => {
     try {
       const { id } = req.params;
-      const updateData = req.body;
+      const { status } = req.body;
 
-      const updated = await db
-        .collection("Payments")
-        .updateOne({ orderId: id }, { $set: updateData });
-
-      if (updated.matchedCount === 0) {
-        return res.status(404).json({ message: "❌ Payment not found" });
+      if (!status) {
+        return res.status(400).json({ error: "Status is required" });
       }
 
-      res.json({ message: "✅ Payment updated successfully" });
+      // Check if payment record exists
+      const existingPayment = await db.collection("Payments").findOne({ 
+        orderId: id 
+      });
+
+      if (existingPayment) {
+        // Update existing payment record
+        await db.collection("Payments").updateOne(
+          { orderId: id },
+          { $set: { status: status, updatedAt: new Date().toISOString() } }
+        );
+      } else {
+        // Create new payment record
+        await db.collection("Payments").insertOne({
+          orderId: id,
+          status: status,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        });
+      }
+
+      res.json({ 
+        message: "✅ Payment status updated successfully",
+        status: status
+      });
     } catch (err) {
-      console.error("❌ Error updating payment:", err);
+      console.error("❌ Error updating payment status:", err);
       res.status(500).json({ error: "Internal server error" });
     }
   });
 
-  // ✅ 5. DELETE — Remove a payment record
+  // ✅ 3. DELETE — Delete a payment record (not the order)
   router.delete("/:id", async (req, res) => {
     try {
       const { id } = req.params;
       
-      // Try to delete by orderId first (string)
-      let deleted = await db
-        .collection("Payments")
-        .deleteOne({ orderId: id });
+      // Only delete from Payments collection, not Orders
+      const result = await db.collection("Payments").deleteOne({ 
+        orderId: id 
+      });
 
-      // If not found, try with ObjectId (in case orderId is stored as ObjectId)
-      if (deleted.deletedCount === 0 && ObjectId.isValid(id)) {
-        deleted = await db
-          .collection("Payments")
-          .deleteOne({ orderId: new ObjectId(id) });
-      }
-
-      // Also try deleting by _id field
-      if (deleted.deletedCount === 0 && ObjectId.isValid(id)) {
-        deleted = await db
-          .collection("Payments")
-          .deleteOne({ _id: new ObjectId(id) });
-      }
-
-      if (deleted.deletedCount === 0) {
-        return res.status(404).json({ message: "❌ Payment not found" });
-      }
-
-      res.status(200).json({ message: "✅ Payment deleted successfully" });
+      // Even if no payment record exists, return success
+      // since we just want to remove the payment tracking
+      res.status(200).json({ 
+        message: "✅ Payment record deleted successfully",
+        deletedCount: result.deletedCount 
+      });
     } catch (err) {
       console.error("❌ Error deleting payment:", err);
       res.status(500).json({ error: "Internal server error" });
