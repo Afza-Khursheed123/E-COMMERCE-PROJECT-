@@ -39,7 +39,6 @@ export default function HomePage() {
     <>
       <Navbar />
       
-      {/* Add Profile/Dashboard Button in Navbar or Header */}
       <div className="fixed top-4 right-4 z-50">
         <Link
           to="/dashboard"
@@ -53,7 +52,7 @@ export default function HomePage() {
       </div>
 
       <div className="bg-gray-50 min-h-screen text-gray-900">
-        {/*  Hero Section */}
+        {/*  the hero section */}
         <section
           className="text-white py-40 text-center bg-cover bg-center"
           style={{
@@ -67,7 +66,6 @@ export default function HomePage() {
             Buy and sell pre-owned items with confidence.
           </p>
           
-          {/* Add Listing Button in Hero Section */}
           <div className="mt-8">
             <Link
               to="/sell"
@@ -81,7 +79,7 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/*  Categories */}
+        {/*  categories :)*/}
         <section className="max-w-6xl mx-auto py-12 px-6">
           <h2 className="text-2xl font-semibold mb-6 text-gray-800 text-center">
             Browse by Category
@@ -107,7 +105,7 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* Featured Products */}
+        {/* maze ki chizen */}
         <section className="max-w-6xl mx-auto py-12 px-6 bg-white rounded-xl shadow-inner">
           <h2 className="text-2xl font-semibold mb-6 text-gray-800 text-center">
             Featured Products
@@ -145,7 +143,7 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* Recently Added */}
+        {/* let see marke me kya ayahy */}
         <section className="max-w-6xl mx-auto py-12 px-6">
           <h2 className="text-2xl font-semibold mb-6 text-gray-800 text-center">
             Recently Added
@@ -183,7 +181,7 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* Footer */}
+ {/* hmaara pyara footer */}
         <footer className="bg-blue-900 text-white py-6 text-center mt-10">
           <p className="text-sm">
             © {new Date().getFullYear()} SecondHand Market — All Rights Reserved.

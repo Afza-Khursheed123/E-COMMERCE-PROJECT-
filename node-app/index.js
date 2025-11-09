@@ -8,6 +8,7 @@ import categoryRoute from "./routes/category.js";
 import productRoute from "./routes/product.js";
 import productListingRoute from "./routes/productListing.js";
 import dashboardRoute from "./routes/dashboard.js";
+import bidRoute from "./routes/bids.js";
 const app = express();
 const port = 3000;
 
@@ -38,6 +39,8 @@ app.use("/category", categoryRoute(db));
     app.use("/dashboard", dashboardRoute(db));
     app.use("/signup", signupRoute(db));
     app.use("/productlisting", productListingRoute(db));
+    app.use("/bids", bidRoute(db));
+
     app.listen(port, () => console.log(`🚀 Server running on http://localhost:${port}`));
   } catch (err) {
     console.error("    Failed to start server:", err);
