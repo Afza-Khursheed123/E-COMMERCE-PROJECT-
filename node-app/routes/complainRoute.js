@@ -1,108 +1,13 @@
-// import express from "express";
-// import { v4 as uuidv4 } from "uuid";
-// const router = express.Router();
-
-// export default function (db) {
-//   // GET all complaints with order info
-//   router.get("/", async (req, res) => {
-//     try {
-//       const complains = await db
-//         .collection("Complains")
-//         .aggregate([
-//           {
-//             $lookup: {
-//               from: "Orders",
-//               localField: "orderId", // string
-//               foreignField: "_id",   // Orders _id still ObjectId
-//               as: "orderInfo",
-//             },
-//           },
-//           { $unwind: { path: "$orderInfo", preserveNullAndEmptyArrays: true } },
-//         ])
-//         .toArray();
-
-//       res.json({ success: true, complains });
-//     } catch (error) {
-//       console.error("Error fetching complains:", error);
-//       res.status(500).json({ success: false, message: "Failed to fetch complains" });
-//     }
-//   });
-
-//   // POST a new complaint
-//   router.post("/", async (req, res) => {
-//     try {
-//       // Generate string _id for complains
-//       const newComplain = {
-//         _id: uuidv4(), // now _id is string
-//         ...req.body,
-//         orderId: req.body.orderId, // string matching Orders _id string
-//         date: new Date().toISOString().split("T")[0],
-//       };
-
-//       await db.collection("Complains").insertOne(newComplain);
-//       res.status(201).json({ success: true, message: "Complain added successfully" });
-//     } catch (error) {
-//       console.error("Error adding complain:", error);
-//       res.status(500).json({ success: false, message: "Failed to add complain" });
-//     }
-//   });
-
-//   // PATCH to update complaint
-//   // router.patch("/:id", async (req, res) => {
-//   //   const { id } = req.params;
-//   //   const updates = req.body;
-
-//   //   try {
-//   //     const result = await db.collection("Complains").updateOne(
-//   //       { _id: id }, // string now
-//   //       { $set: updates }
-//   //     );
-
-//   //     if (result.modifiedCount === 1) {
-//   //       res.json({ success: true, message: "Complaint updated successfully" });
-//   //     } else {
-//   //       res.status(404).json({ success: false, message: "Complaint not found" });
-//   //     }
-//   //   } catch (error) {
-//   //     console.error("Error updating complaint:", error);
-//   //     res.status(500).json({ success: false, message: "Failed to update complaint" });
-//   //   }
-//   // });
-
-//   router.patch("/:id", async (req, res) => {
-//   const { id } = req.params;
-//   const updates = req.body;
-
-//   try {
-//     const result = await db.collection("Complains").updateOne(
-//       { _id: id },
-//       { $set: updates }
-//     );
-
-//     if (result.modifiedCount === 1) {
-//       // ✅ Updated complaint return karo
-//       const updatedComplaint = await db.collection("Complains").findOne({ _id: id });
-//       res.json({ success: true, complaint: updatedComplaint });
-//     } else {
-//       res.status(404).json({ success: false, message: "Complaint not found" });
-//     }
-//   } catch (error) {
-//     console.error("Error updating complaint:", error);
-//     res.status(500).json({ success: false, message: "Failed to update complaint" });
-//   }
-// });
-
-//   return router;
-// }
-
 import express from "express";
 import { v4 as uuidv4 } from "uuid";
-import { ObjectId } from "mongodb";  // ✅ Add this import
+import { ObjectId } from "mongodb";
 
 const router = express.Router();
 
 export default function (db) {
-  // GET all complaints
+  // ================================
+  // GET ALL COMPLAINTS + ORDER INFO
+  // ================================
   router.get("/", async (req, res) => {
     try {
       const complains = await db
@@ -111,8 +16,8 @@ export default function (db) {
           {
             $lookup: {
               from: "Orders",
-              localField: "orderId",
-              foreignField: "_id",
+              localField: "orderId",  // string in Complains
+              foreignField: "_id",    // Orders _id must also be string
               as: "orderInfo",
             },
           },
@@ -127,69 +32,70 @@ export default function (db) {
     }
   });
 
-  // POST a new complaint
+  // ================================
+  // ADD NEW COMPLAINT
+  // ================================
   router.post("/", async (req, res) => {
     try {
       const newComplain = {
-        _id: uuidv4(),
+        _id: uuidv4(), // string uuid
         ...req.body,
-        orderId: req.body.orderId,
+        orderId: req.body.orderId, // must be string
         date: new Date().toISOString().split("T")[0],
       };
 
       await db.collection("Complains").insertOne(newComplain);
-      res.status(201).json({ success: true, message: "Complain added successfully" });
+
+      res.status(201).json({
+        success: true,
+        message: "Complain added successfully",
+      });
     } catch (error) {
       console.error("Error adding complain:", error);
-      res.status(500).json({ success: false, message: "Failed to add complain" });
+      res.status(500).json({
+        success: false,
+        message: "Failed to add complain",
+      });
     }
   });
 
-  // ✅ PATCH - YEH FIX HAI
+  // ================================
+  // UPDATE COMPLAINT
+  // ================================
   router.patch("/:id", async (req, res) => {
-    const { id } = req.params;
-    const updates = req.body;
-
     try {
+      const { id } = req.params;
+      const updates = req.body;
+
       let query;
-      
-      // Check if ID is ObjectId format (24 hex chars) or UUID
+
+      // Detect if ObjectId or string UUID
       if (id.match(/^[0-9a-fA-F]{24}$/)) {
-        // MongoDB ObjectId
         query = { _id: new ObjectId(id) };
       } else {
-        // UUID string
         query = { _id: id };
       }
 
-      console.log("Updating with query:", query);
-      console.log("Updates:", updates);
+      const result = await db.collection("Complains").updateOne(query, {
+        $set: updates,
+      });
 
-      const result = await db.collection("Complains").updateOne(
-        query,
-        { $set: updates }
-      );
-
-      console.log("Update result:", result);
-
-      if (result.modifiedCount === 1 || result.matchedCount === 1) {
-        res.json({ 
-          success: true, 
-          message: "Complaint updated successfully" 
-        });
-      } else {
-        console.error("No document matched the query");
-        res.status(404).json({ 
-          success: false, 
-          message: "Complaint not found" 
+      if (result.matchedCount === 0) {
+        return res.status(404).json({
+          success: false,
+          message: "Complaint not found",
         });
       }
+
+      res.json({
+        success: true,
+        message: "Complaint updated successfully",
+      });
     } catch (error) {
       console.error("Error updating complaint:", error);
-      res.status(500).json({ 
-        success: false, 
+      res.status(500).json({
+        success: false,
         message: "Failed to update complaint",
-        error: error.message 
       });
     }
   });
