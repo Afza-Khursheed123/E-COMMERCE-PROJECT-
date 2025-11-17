@@ -6,6 +6,11 @@ export default function (db) {
   router.get("/", async (req, res) => {
     try {
       // Map orders to payment format with user and product details
+      const orders = await db.collection("Orders").find().toArray();
+      const users = await db.collection("User").find().toArray();
+      const products = await db.collection("Products").find().toArray();
+      const payments = await db.collection("Payments").find().toArray();
+
       const paymentData = orders.map(order => {
         const orderIdStr = order._id?.toString();
         const buyer = users.find(u => u._id?.toString() === order.userId?.toString());
