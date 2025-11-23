@@ -6,6 +6,9 @@ export default function productRoute(db) {
   const bids = db.collection("Bids");
   const notifications = db.collection("Notification");
 
+
+
+  
   // Get all products
   router.get("/", async (req, res) => {
     try {
@@ -17,7 +20,7 @@ export default function productRoute(db) {
     }
   });
 
-  // Get a product by string ID - UPDATED to show all bids to owner
+  // Get a product by string ID - UPDATED to include likes, ratings, and comments
   router.get("/:id", async (req, res) => {
     try {
       const { id } = req.params;
@@ -37,8 +40,8 @@ export default function productRoute(db) {
 
       let filteredProduct = { ...product };
       
+      // Handle bids filtering based on user role
       if (userId) {
-        // ✅ FIX: If user is the owner, show ALL bids. Otherwise, show only user's bids
         if (userId === product.userId) {
           // Owner sees all bids
           filteredProduct.activeBids = product.activeBids || [];
@@ -52,8 +55,22 @@ export default function productRoute(db) {
             filteredProduct.activeBids = [];
           }
         }
+
+        // Handle user-specific data (likes, ratings)
+        filteredProduct.userRating = product.ratings?.find(r => r.userId === userId)?.rating || null;
+        filteredProduct.liked = product.likes?.includes(userId) || false;
       } else {
         filteredProduct.activeBids = [];
+        filteredProduct.userRating = null;
+        filteredProduct.liked = false;
+      }
+
+      // Calculate average rating
+      if (product.ratings && product.ratings.length > 0) {
+        const total = product.ratings.reduce((sum, r) => sum + r.rating, 0);
+        filteredProduct.averageRating = total / product.ratings.length;
+      } else {
+        filteredProduct.averageRating = 0;
       }
 
       res.json(filteredProduct);
@@ -107,7 +124,7 @@ export default function productRoute(db) {
         bidderId: String(bidderId),
         bidderName,
         bidAmount: parseFloat(amount),
-        bidStatus: currentBidStatus, // ✅ Preserve status when updating amount
+        bidStatus: currentBidStatus,
         placedAt: existingUserBid?.placedAt || new Date().toISOString(),
         updatedAt: new Date().toISOString(),
         isUpdate: isUpdate,
@@ -130,7 +147,7 @@ export default function productRoute(db) {
         bidderName,
         amount: parseFloat(amount),
         date: new Date().toISOString(),
-        bidStatus: currentBidStatus, // ✅ Preserve status
+        bidStatus: currentBidStatus,
         isUpdate: isUpdate,
         previousAmount: previousAmount,
         placedAt: existingUserBid?.placedAt || new Date().toISOString()
@@ -182,7 +199,7 @@ export default function productRoute(db) {
               title: notificationTitle,
               message: notificationMsg,
               updatedAt: new Date().toISOString(),
-              isRead: false // Mark as unread since it's updated
+              isRead: false
             } 
           }
         );
@@ -239,6 +256,143 @@ export default function productRoute(db) {
       res.status(500).json({ message: "Server error", error: err.message });
     }
   });
+
+  // LIKE PRODUCT
+  router.patch("/:id/like", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { userId } = req.body;
+
+      const product = await products.findOne({ _id: id });
+      if (!product) return res.status(404).json({ message: "Product not found" });
+
+      const alreadyLiked = product.likes?.includes(userId) || false;
+
+      if (alreadyLiked) {
+        // Remove like
+        await products.updateOne(
+          { _id: id },
+          { $pull: { likes: userId } }
+        );
+      } else {
+        // Add like
+        await products.updateOne(
+          { _id: id },
+          { 
+            $addToSet: { likes: userId },
+            $setOnInsert: { likes: [userId] }
+          },
+          { upsert: true }
+        );
+      }
+
+      const updatedProduct = await products.findOne({ _id: id });
+      res.json({ 
+        likes: updatedProduct.likes?.length || 0, 
+        liked: !alreadyLiked 
+      });
+
+    } catch (err) {
+      console.error("LIKE PRODUCT ERROR:", err);
+      res.status(500).json({ message: "Server error" });
+    }
+  });
+
+  // RATE PRODUCT
+  router.post("/:id/rate", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { userId, rating } = req.body;
+
+      const product = await products.findOne({ _id: id });
+      if (!product) return res.status(404).json({ message: "Product not found" });
+
+      const ratingValue = parseInt(rating);
+      if (ratingValue < 1 || ratingValue > 5) {
+        return res.status(400).json({ message: "Rating must be between 1 and 5" });
+      }
+
+      // Update or add rating
+      const existingRatingIndex = product.ratings?.findIndex(r => r.userId === userId) || -1;
+      
+      if (existingRatingIndex >= 0) {
+        // Update existing rating
+        await products.updateOne(
+          { _id: id, "ratings.userId": userId },
+          { $set: { "ratings.$.rating": ratingValue } }
+        );
+      } else {
+        // Add new rating
+        await products.updateOne(
+          { _id: id },
+          { 
+            $push: { 
+              ratings: { 
+                userId, 
+                rating: ratingValue,
+                createdAt: new Date().toISOString()
+              } 
+            } 
+          }
+        );
+      }
+
+      // Calculate new average rating
+      const updatedProduct = await products.findOne({ _id: id });
+      const ratings = updatedProduct.ratings || [];
+      const averageRating = ratings.length > 0 
+        ? ratings.reduce((sum, r) => sum + r.rating, 0) / ratings.length
+        : 0;
+
+      res.json({
+        averageRating: averageRating,
+        userRating: ratingValue,
+      });
+
+    } catch (err) {
+      console.error("RATE PRODUCT ERROR:", err);
+      res.status(500).json({ message: "Server error" });
+    }
+  });
+
+  // COMMENT PRODUCT
+  router.post("/:id/comment", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { userId, text, userName } = req.body;
+
+      const product = await products.findOne({ _id: id });
+      if (!product) return res.status(404).json({ message: "Product not found" });
+
+      const newComment = {
+        _id: `${id}-${Date.now()}-${userId}`,
+        userId,
+        userName: userName || "Anonymous",
+        text: text.trim(),
+        createdAt: new Date().toISOString(),
+      };
+
+      await products.updateOne(
+        { _id: id },
+        { 
+          $push: { 
+            comments: newComment 
+          } 
+        }
+      );
+
+      const updatedProduct = await products.findOne({ _id: id });
+      res.json(updatedProduct.comments || []);
+
+    } catch (err) {
+      console.error("COMMENT PRODUCT ERROR:", err);
+      res.status(500).json({ message: "Server error" });
+    }
+  });
+
+
+
+  
 
   return router;
 }

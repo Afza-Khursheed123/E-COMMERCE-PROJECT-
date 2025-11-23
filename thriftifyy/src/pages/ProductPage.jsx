@@ -1,7 +1,8 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import api from "../api";
 import Loader from "../components/Loader";
+import { Container, Row, Col, Card, Button, Accordion, Modal } from 'react-bootstrap';
 
 const ProductPage = () => {
   const { id } = useParams();
@@ -9,152 +10,309 @@ const ProductPage = () => {
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
   const [selectedImage, setSelectedImage] = useState(null);
-  const [showBidCard, setShowBidCard] = useState(false);
-  const [bidAmount, setBidAmount] = useState("");
-  const [userBid, setUserBid] = useState(null);
+  const [showOfferCard, setShowOfferCard] = useState(false);
+  const [offerAmount, setOfferAmount] = useState("");
+  const [userOffer, setUserOffer] = useState(null);
+  const [placingOffer, setPlacingOffer] = useState(false);
+  
+  // Image modal state
+  const [showImageModal, setShowImageModal] = useState(false);
+  const [modalImage, setModalImage] = useState(null);
+  
+  // Cart state - initialize from localStorage if available
+  const [isInCart, setIsInCart] = useState(() => {
+    const savedCart = localStorage.getItem(`cart_${id}`);
+    return savedCart ? JSON.parse(savedCart) : false;
+  });
+  const [updatingCart, setUpdatingCart] = useState(false);
+  
+  // Favorites state - initialize from localStorage if available
+  const [isFavorite, setIsFavorite] = useState(() => {
+    const savedFavorite = localStorage.getItem(`favorite_${id}`);
+    return savedFavorite ? JSON.parse(savedFavorite) : false;
+  });
+  const [updatingFavorite, setUpdatingFavorite] = useState(false);
+
+  // User state
   const [user, setUser] = useState(null);
-  const [placingBid, setPlacingBid] = useState(false);
+
+  const hasFetched = useRef(false);
+
+  // Theme colors matching your home page exactly
+  const colors = {
+    primary: "#19535F",
+    secondary: "#0B7A75", 
+    accent: "#D7C9AA",
+    light: "#F0F3F5",
+    dark: "#1a1a1a",
+    badge: "#19535F",
+    bg: "#19535F",
+    text: "#F0F3F5"
+  };
 
   // ✅ Get current user from localStorage
   useEffect(() => {
-    const fetchUser = async () => {
-      try {
-        const userData = localStorage.getItem('user');
-        if (!userData) return;
-
-        const user = JSON.parse(userData);
-        const userId = user._id || user.id;
-
-        if (!userId) return;
-
-        console.log("🔄 User loaded from localStorage:", user.name);
-        setUser(user);
-        
-      } catch (err) {
-        console.error("❌ Error loading user:", err);
-      }
-    };
-    
-    fetchUser();
+    const currentUser = JSON.parse(localStorage.getItem('user'));
+    if (currentUser) {
+      setUser(currentUser);
+    }
   }, []);
 
-  // ✅ Fetch product details
-  useEffect(() => {
-    const fetchProduct = async () => {
-      try {
-        setLoading(true);
-        const userId = user?._id || user?.id;
-        
-        const res = await api.get(`/products/${id}${userId ? `?userId=${userId}` : ''}`);
-        console.log("📦 Filtered product data:", res.data);
-        
-        setProduct(res.data);
-        setSelectedImage(res.data.images?.[0] || "/placeholder.jpg");
+  // ✅ Fetch product details with cart and favorite status
+  const fetchProduct = useCallback(async () => {
+    if (hasFetched.current) return;
+    hasFetched.current = true;
 
-        const userBids = res.data.activeBids || [];
-        setUserBid(userBids.length > 0 ? userBids[0] : null);
-        
-      } catch (err) {
-        console.error("❌ Product fetch error:", err);
-      } finally {
-        setLoading(false);
+    try {
+      setLoading(true);
+      const userId = user?._id || user?.id;
+
+      const productRes = await api.get(`/products/${id}${userId ? `?userId=${userId}` : ''}`);
+      const productData = productRes.data;
+      setProduct(productData);
+      
+      // Set initial selected image
+      const initialImage = productData.images?.[0] || "/placeholder.jpg";
+      setSelectedImage(initialImage);
+
+      // ✅ FIX: Properly set userOffer from activeBids
+      const userOffers = productData.activeBids || [];
+      const currentUserOffer = userOffers.find(offer => 
+        offer.bidderId === (user?._id || user?.id)
+      );
+      setUserOffer(currentUserOffer || null);
+
+      // Store offer in localStorage for persistence
+      if (currentUserOffer) {
+        localStorage.setItem(`offer_${id}`, JSON.stringify(currentUserOffer));
       }
-    };
+      
+      // Fetch cart and favorites status if user is logged in
+      if (userId) {
+        try {
+          const cartRes = await api.get(`/cart/user/${userId}`);
+          const cartItem = cartRes.data.items?.find(item => item.productId === id);
+          const cartStatus = !!cartItem;
+          setIsInCart(cartStatus);
+          localStorage.setItem(`cart_${id}`, JSON.stringify(cartStatus));
+        } catch (error) {
+          console.error("Error fetching cart status:", error);
+        }
 
-    if (user || !loading) {
-      fetchProduct();
+        try {
+          const favRes = await api.get(`/favorites/user/${userId}`);
+          const isFav = favRes.data.items?.some((item) => item.productId === id);
+          setIsFavorite(isFav);
+          localStorage.setItem(`favorite_${id}`, JSON.stringify(isFav));
+        } catch (error) {
+          console.error("Error fetching favorite status:", error);
+        }
+      }
+
+      // ✅ Load userOffer from localStorage if API didn't return it (persistence fix)
+      const savedOffer = localStorage.getItem(`offer_${id}`);
+      if (savedOffer && !currentUserOffer) {
+        setUserOffer(JSON.parse(savedOffer));
+      }
+
+    } catch (err) {
+      console.error("Product fetch error:", err);
+      hasFetched.current = false;
+    } finally {
+      setLoading(false);
     }
   }, [id, user]);
 
-  // ✅ UPDATED: Enhanced offer placement - UPDATE existing offers
-  const handlePlaceBid = async () => {
+  useEffect(() => {
+    fetchProduct();
+  }, [fetchProduct]);
+
+  // ✅ Toggle Cart Function with localStorage persistence
+  const toggleCart = async () => {
     if (!user) {
-      alert("⚠️ Please log in to make an offer.");
+      alert("Please log in to manage cart items.");
       navigate('/login');
       return;
     }
 
     if (!product.isAvailable) {
-      alert("❌ This product is no longer available.");
+      alert("This product is no longer available.");
       return;
     }
 
-    const bid = parseFloat(bidAmount);
-    if (isNaN(bid) || bid <= 0) {
-      alert("❌ Please enter a valid offer amount.");
-      return;
-    }
-
-    setPlacingBid(true);
+    setUpdatingCart(true);
     try {
-      console.log("🚀 Placing/updating offer:", {
-        amount: bid,
-        bidderId: user._id || user.id,
-        bidderName: user.name,
-        isUpdate: !!userBid
-      });
+      if (isInCart) {
+        await api.post("/cart/remove", {
+          userId: user._id || user.id,
+          productId: id
+        });
+        setIsInCart(false);
+        localStorage.setItem(`cart_${id}`, JSON.stringify(false));
+      } else {
+        await api.post("/cart/add", {
+          userId: user._id || user.id,
+          productId: id,
+          quantity: 1,
+        });
+        setIsInCart(true);
+        localStorage.setItem(`cart_${id}`, JSON.stringify(true));
+      }
+    } catch (error) {
+      console.error("Cart toggle error:", error);
+      alert("Failed to update cart");
+    } finally {
+      setUpdatingCart(false);
+    }
+  };
 
+  // ✅ Toggle Favorite Function with localStorage persistence
+  const toggleFavorite = async () => {
+    if (!user) {
+      alert("Please log in to manage favorites.");
+      navigate('/login');
+      return;
+    }
+
+    setUpdatingFavorite(true);
+    try {
+      if (isFavorite) {
+        await api.post("/favorites/remove", { 
+          userId: user._id || user.id, 
+          productId: id 
+        });
+        setIsFavorite(false);
+        localStorage.setItem(`favorite_${id}`, JSON.stringify(false));
+      } else {
+        await api.post("/favorites/add", { 
+          userId: user._id || user.id, 
+          productId: id 
+        });
+        setIsFavorite(true);
+        localStorage.setItem(`favorite_${id}`, JSON.stringify(true));
+      }
+    } catch (error) {
+      console.error("Toggle favorite error:", error);
+      alert("Failed to update favorites");
+    } finally {
+      setUpdatingFavorite(false);
+    }
+  };
+
+  // ✅ Handle offer placement with localStorage persistence
+  const handlePlaceOffer = async () => {
+    if (!user) {
+      alert("Please log in to make an offer.");
+      navigate('/login');
+      return;
+    }
+
+    if (!product.isAvailable) {
+      alert("This product is no longer available.");
+      return;
+    }
+
+    const offer = parseFloat(offerAmount);
+    if (isNaN(offer) || offer <= 0) {
+      alert("Please enter a valid offer amount.");
+      return;
+    }
+
+    setPlacingOffer(true);
+    try {
       const res = await api.post(`/products/${id}/placeBid`, {
-        amount: bid,
+        amount: offer,
         bidderId: user._id || user.id,
         bidderName: user.name,
       });
 
-      console.log("✅ Offer response:", res.data);
-
-      // Update product with new offer data
       setProduct(res.data.product);
-      setBidAmount("");
-      setShowBidCard(false);
+      setOfferAmount("");
+      setShowOfferCard(false);
       
-      // Update user's offer
-      setUserBid(res.data.bid);
+      // ✅ FIX: Update userOffer state and persist to localStorage
+      const newUserOffer = res.data.bid;
+      setUserOffer(newUserOffer);
+      localStorage.setItem(`offer_${id}`, JSON.stringify(newUserOffer));
 
       if (res.data.isUpdate) {
-        alert("✅ Offer updated successfully! The seller will see your new offer.");
+        alert("Offer updated successfully!");
       } else {
-        alert("✅ Offer submitted successfully! The seller will review your offer.");
+        alert("Offer submitted successfully!");
       }
     } catch (err) {
-      console.error("❌ Error placing offer:", err);
-      if (err.response?.data?.message) {
-        alert(`❌ ${err.response.data.message}`);
-      } else {
-        alert("❌ Failed to submit offer. Please try again.");
-      }
+      console.error("Error placing offer:", err);
+      alert(err.response?.data?.message || "Failed to submit offer.");
     } finally {
-      setPlacingBid(false);
+      setPlacingOffer(false);
+    }
+  };
+
+  // ✅ Handle Buy Now Function
+  const handleBuyNow = async () => {
+    if (!user) {
+      alert("Please log in to make a purchase.");
+      navigate('/login');
+      return;
+    }
+
+    if (!product.isAvailable) {
+      alert("This product is no longer available.");
+      return;
+    }
+
+    setUpdatingCart(true);
+    try {
+      // Add to cart first
+      await api.post("/cart/add", {
+        userId: user._id || user.id,
+        productId: id,
+        quantity: 1,
+      });
+      
+      // Update local state
+      setIsInCart(true);
+      localStorage.setItem(`cart_${id}`, JSON.stringify(true));
+      
+      // Navigate directly to checkout
+      navigate('/checkout', { 
+        state: { 
+          directPurchase: true,
+          productId: id,
+          productName: product.name,
+          price: product.price,
+          quantity: 1
+        }
+      });
+    } catch (error) {
+      console.error("Buy Now error:", error);
+      alert("Failed to process purchase");
+    } finally {
+      setUpdatingCart(false);
     }
   };
 
   // ✅ Handle offer button click
-  const handleBidButtonClick = () => {
+  const handleOfferButtonClick = () => {
     if (!user) {
-      alert("⚠️ Please log in to make an offer.");
+      alert("Please log in to make an offer.");
       navigate('/login');
       return;
     }
     
-    // Pre-fill with current offer amount if updating
-    if (userBid) {
-      setBidAmount(getBidAmount(userBid).toString());
+    if (userOffer) {
+      setOfferAmount(getOfferAmount(userOffer).toString());
     }
-    setShowBidCard(true);
+    setShowOfferCard(true);
   };
 
-  // ✅ Cancel offer update
-  const handleCancelUpdate = () => {
-    setBidAmount("");
-    setShowBidCard(false);
+  // ✅ Open image in modal for better viewing
+  const openImageModal = (image) => {
+    setModalImage(image);
+    setShowImageModal(true);
   };
 
-  // ✅ Check if user is the listing owner
-  const isUserOwner = () => {
-    if (!user || !product) return false;
-    return (user._id || user.id) === product.userId;
-  };
-
-  // ✅ Format currency
+  // ✅ Utility functions
   const formatCurrency = (amount) => {
     if (!amount || isNaN(amount)) return "$0.00";
     return new Intl.NumberFormat('en-US', {
@@ -163,7 +321,6 @@ const ProductPage = () => {
     }).format(amount);
   };
 
-  // ✅ Format date safely
   const formatDate = (dateString) => {
     if (!dateString) return "Not available";
     try {
@@ -174,23 +331,20 @@ const ProductPage = () => {
     }
   };
 
-  // ✅ Get bid amount safely
-  const getBidAmount = (bid) => {
-    if (!bid) return 0;
-    return bid.amount || bid.bidAmount || 0;
+  const getOfferAmount = (offer) => {
+    if (!offer) return 0;
+    return offer.amount || offer.bidAmount || 0;
   };
 
-  // ✅ Get bid date safely
-  const getBidDate = (bid) => {
-    return bid.placedAt || bid.createdAt || bid.date;
+  const getOfferStatus = (offer) => {
+    return offer.bidStatus || offer.status || "pending";
   };
 
-  // ✅ Get bid status safely
-  const getBidStatus = (bid) => {
-    return bid.bidStatus || bid.status || "pending";
+  const isUserOwner = () => {
+    if (!user || !product) return false;
+    return (user._id || user.id) === product.userId;
   };
 
-  // ✅ Get seller info
   const getSellerInfo = () => {
     if (!product) return {};
     
@@ -202,7 +356,7 @@ const ProductPage = () => {
     };
   };
 
-  // ✅ Render product details dynamically
+  // ✅ Render product details
   const renderProductDetails = () => {
     if (!product.details) return null;
 
@@ -212,416 +366,1002 @@ const ProductPage = () => {
     if (detailEntries.length === 0) return null;
 
     return (
-      <div className="p-4 bg-yellow-50 rounded-xl">
-        <h3 className="font-semibold text-lg text-gray-800 mb-3">Product Details</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+      <div className="mt-4">
+        <h4 style={{ color: colors.primary, fontWeight: '600', marginBottom: '1rem' }}>Product Specifications</h4>
+        <Row>
           {detailEntries.map(([key, value]) => (
-            <div key={key} className="flex flex-col">
-              <span className="text-gray-500 text-sm font-medium capitalize">
-                {key.replace(/([A-Z])/g, ' $1').trim()}:
-              </span>
-              <span className="font-medium text-gray-800">{value}</span>
-            </div>
+            <Col key={key} xs={6} md={4} className="mb-3">
+              <div style={{ 
+                background: 'rgba(215, 201, 170, 0.1)', 
+                padding: '0.75rem', 
+                borderRadius: '8px',
+                border: `1px solid ${colors.accent}20`
+              }}>
+                <div style={{ 
+                  fontSize: '0.8rem', 
+                  color: colors.primary, 
+                  fontWeight: '600',
+                  textTransform: 'capitalize',
+                  marginBottom: '0.25rem'
+                }}>
+                  {key.replace(/([A-Z])/g, ' $1').trim()}
+                </div>
+                <div style={{ fontSize: '0.9rem', color: colors.dark, fontWeight: '500' }}>
+                  {value}
+                </div>
+              </div>
+            </Col>
           ))}
-        </div>
+        </Row>
       </div>
     );
   };
 
-  // ✅ Render Logic
   if (loading) return <Loader />;
   if (!product)
     return (
-      <p className="text-center mt-8 text-red-600 font-semibold">
-        ❌ Product not found.
-      </p>
+      <Container className="text-center mt-5">
+        <div style={{ color: colors.primary, fontSize: '1.5rem', fontWeight: '600' }}>
+          Product not found
+        </div>
+      </Container>
     );
 
   const isAvailable = product.isAvailable;
-  const currentBids = product.activeBids || [];
+  const currentOffers = product.activeBids || [];
   const sellerInfo = getSellerInfo();
   const isOwner = isUserOwner();
 
   return (
-    <div className="px-6 md:px-16 py-10 bg-gray-50 min-h-screen">
-      <button
-        onClick={() => navigate(-1)}
-        className="mb-6 px-4 py-2 bg-gray-200 rounded-xl hover:bg-gray-300 transition"
+    <Container fluid style={{ 
+      background: 'linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%)',
+      minHeight: '100vh',
+      padding: 0 
+    }}>
+      {/* Image Modal for Enhanced Viewing */}
+      <Modal 
+        show={showImageModal} 
+        onHide={() => setShowImageModal(false)} 
+        size="xl" 
+        centered
+        className="image-modal"
       >
-        ← Back
-      </button>
-
-      <div className="flex flex-col md:flex-row bg-white rounded-2xl shadow-lg p-6 gap-10">
-        {/* Product Image Section */}
-        <div className="md:w-1/2 flex flex-col items-center gap-4">
+        <Modal.Header closeButton style={{ border: 'none', background: colors.primary }}>
+          <Modal.Title style={{ color: colors.light, fontWeight: '600' }}>
+            {product.name} - Full View
+          </Modal.Title>
+        </Modal.Header>
+        <Modal.Body className="text-center p-0">
           <img
-            src={selectedImage}
+            src={modalImage}
             alt={product.name}
-            className="w-full max-w-md rounded-2xl shadow-md object-cover hover:scale-105 transition-transform duration-300"
+            style={{
+              width: '100%',
+              height: '70vh',
+              objectFit: 'contain',
+              background: '#f8f9fa'
+            }}
           />
-          <div className="flex gap-3 overflow-x-auto mt-2">
-            {product.images?.map((img, index) => (
-              <img
-                key={index}
-                src={img}
-                alt={`${product.name}-${index}`}
-                className={`w-20 h-20 rounded-xl object-cover cursor-pointer border-2 ${
-                  img === selectedImage ? "border-blue-500" : "border-gray-200"
-                }`}
-                onClick={() => setSelectedImage(img)}
-              />
-            ))}
-          </div>
-        </div>
+        </Modal.Body>
+      </Modal>
 
-        {/* Product Info */}
-        <div className="flex-1 space-y-4">
-          <div className="flex justify-between items-start">
-            <h1 className="text-3xl font-bold text-gray-800">{product.name}</h1>
-            <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-              isAvailable 
-                ? "bg-green-100 text-green-800" 
-                : "bg-red-100 text-red-800"
-            }`}>
-              {isAvailable ? "Available" : "Sold"}
-            </span>
-          </div>
-
-          <div className="flex items-baseline gap-3">
-            <p className="text-2xl text-green-700 font-semibold">
-              {formatCurrency(product.price)}
-            </p>
-            {product.originalPrice && product.originalPrice > product.price && (
-              <>
-                <p className="text-gray-400 line-through">
-                  {formatCurrency(product.originalPrice)}
-                </p>
-                {product.discount && (
-                  <p className="text-red-500 font-medium">
-                    {product.discount}% OFF
-                  </p>
-                )}
-              </>
-            )}
-          </div>
-
-          <div className="flex flex-wrap gap-3">
-            <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium">
-              {product.condition}
-            </span>
-            {product.categoryId && (
-              <span className="px-3 py-1 bg-purple-100 text-purple-800 rounded-full text-sm font-medium">
-                {product.categoryId}
-              </span>
-            )}
-          </div>
-
-          <hr className="my-4" />
-
-          {/* Description */}
-          <div>
-            <h2 className="text-lg text-black font-semibold mb-1">Description</h2>
-            <p className="text-gray-700 leading-relaxed">
-              {product.description || "No description provided."}
-            </p>
-          </div>
-
-          {/* Dynamic Product Details */}
-          {renderProductDetails()}
-
-          {/* Listing Owner Info */}
-          <div className="p-4 bg-gray-100 rounded-xl space-y-2">
-            <h3 className="font-semibold text-lg text-gray-800">Listing Owner</h3>
-            <div className="grid grid-cols-2 gap-2 text-sm">
-              <span className="text-gray-600">Name:</span>
-              <span className="font-medium text-gray-700 ">{sellerInfo.name}</span>
-              
-              <span className="text-gray-600">Rating:</span>
-              <span className="font-medium text-gray-700 ">⭐ {sellerInfo.rating}</span>
-              
-              <span className="text-gray-600">Location:</span>
-              <span className="font-medium text-gray-700 ">{sellerInfo.location}</span>
-              
-              <span className="text-gray-600">Completed Sales:</span>
-              <span className="font-medium text-gray-700 ">{sellerInfo.sales}</span>
-            </div>
-          </div>
-
-         {/* Action Buttons - UPDATED: Properly disable for sold products and accepted offers */}
-<div className="mt-6 flex flex-wrap gap-4">
-  {/* Buy Now Button - Disabled if user is owner OR product is sold OR user has accepted offer */}
-  {!isOwner && (
-    <button 
-      className="px-6 py-3 bg-green-600 text-white rounded-xl hover:bg-green-700 transition font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-      disabled={isOwner || !isAvailable || (userBid && getBidStatus(userBid) === 'accepted')}
-    >
-      {isOwner ? "Your Listing" : 
-       (userBid && getBidStatus(userBid) === 'accepted') ? "Item Purchased" : 
-       "Buy Now"}
-    </button>
-  )}
-  
-  {/* Make/Update Offer Button - Hidden for owner, disabled if sold or offer finalized */}
-  {!isOwner && (
-    <button
-      onClick={handleBidButtonClick}
-      disabled={!isAvailable || placingBid || 
-               (userBid && (getBidStatus(userBid) === 'accepted' || getBidStatus(userBid) === 'rejected'))}
-      className="px-6 py-3 bg-yellow-500 text-white rounded-xl hover:bg-yellow-600 transition font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-    >
-      {!isAvailable ? "Item Sold" :
-       userBid && getBidStatus(userBid) === 'accepted' ? "Offer Accepted" :
-       userBid && getBidStatus(userBid) === 'rejected' ? "Offer Closed" :
-       userBid ? "Update Offer" : "Make Offer"}
-    </button>
-  )}
-  
-  <button 
-    className="px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-    disabled={!isAvailable || (userBid && getBidStatus(userBid) === 'accepted')}
-  >
-    Propose Swap
-  </button>
-  <button 
-    className="px-6 py-3 bg-gray-200 text-gray-800 rounded-xl hover:bg-gray-300 transition font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-    disabled={!isAvailable}
-  >
-    Contact Owner
-  </button>
-</div>
-          {/* Availability Message */}
-          {!isAvailable && (
-            <div className="mt-6 p-4 bg-red-100 text-red-800 rounded-xl font-medium">
-              ❌ This item has been sold and is no longer available.
-            </div>
-          )}
-
-          {/* Offer Card - Show for making/updating offers */}
-          {showBidCard && !isOwner && (
-            <div className={`mt-6 p-6 border rounded-xl shadow-md max-w-sm ${
-              userBid ? 'bg-blue-50 border-blue-200' : 'bg-yellow-50 border-yellow-200'
-            }`}>
-              <h3 className="text-lg font-semibold mb-2 text-gray-800">
-                {userBid ? 'Update Your Offer' : 'Make Your Offer'}
-              </h3>
-              
-              {userBid && (
-                <p className="text-sm text-gray-600 mb-3">
-                  Current offer: <strong>{formatCurrency(getBidAmount(userBid))}</strong>
-                </p>
-              )}
-              
-              <p className="text-sm text-gray-600 mb-3">
-                Asking price: <strong>{formatCurrency(product.price)}</strong>
-              </p>
-              
-              <p className="text-sm text-gray-600 mb-3">
-                Logged in as: <strong>{user?.name}</strong>
-              </p>
-              
-              <input
-                type="number"
-                placeholder={userBid ? "Enter new offer amount" : "Enter your offer amount"}
-                value={bidAmount}
-                onChange={(e) => setBidAmount(e.target.value)}
-                className="w-full px-4 py-2 mb-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
-                step="0.01"
-              />
-              
-              <p className="text-xs text-gray-500 mb-3">
-                💡 This is bargaining - offer any amount you think is fair!
-                {userBid && " Updating will replace your current offer."}
-              </p>
-              
-              <div className="flex justify-end gap-3">
-                <button
-                  onClick={handleCancelUpdate}
-                  className="px-4 py-2 bg-gray-300 rounded-lg hover:bg-gray-400 transition font-medium"
-                  disabled={placingBid}
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handlePlaceBid}
-                  disabled={placingBid || !bidAmount}
-                  className={`px-4 py-2 text-white rounded-lg transition font-medium disabled:opacity-50 ${
-                    userBid ? 'bg-blue-500 hover:bg-blue-600' : 'bg-yellow-500 hover:bg-yellow-600'
-                  }`}
-                >
-                  {placingBid ? "Submitting..." : (userBid ? "Update Offer" : "Submit Offer")}
-                </button>
-              </div>
-            </div>
-          )}
-
-
-
-
-
-
-
-       // ✅ User's Current Offer - Only shown to the user who made the offer
-{userBid && !isOwner && !showBidCard && (
-  <div className={`mt-4 p-4 border rounded-xl ${
-    getBidStatus(userBid) === 'accepted' ? 'bg-green-50 border-green-200' :
-    getBidStatus(userBid) === 'rejected' ? 'bg-red-50 border-red-200' :
-    'bg-blue-50 border-blue-200'
-  }`}>
-    <div className="flex items-center justify-between">
-      <div>
-        <p className={`font-semibold ${
-          getBidStatus(userBid) === 'accepted' ? 'text-green-800' :
-          getBidStatus(userBid) === 'rejected' ? 'text-red-800' :
-          'text-blue-800'
-        }`}>
-          {getBidStatus(userBid) === 'accepted' ? '🎉 Offer Accepted!' : 
-           getBidStatus(userBid) === 'rejected' ? '❌ Offer Declined' : 
-           '💰 Your Current Offer'}
-        </p>
-        <p className={`text-xl font-bold ${
-          getBidStatus(userBid) === 'accepted' ? 'text-green-700' :
-          getBidStatus(userBid) === 'rejected' ? 'text-red-700' :
-          'text-blue-700'
-        }`}>
-          {formatCurrency(getBidAmount(userBid))}
-        </p>
-        <p className={`text-sm ${
-          getBidStatus(userBid) === 'accepted' ? 'text-green-600' :
-          getBidStatus(userBid) === 'rejected' ? 'text-red-600' :
-          'text-blue-600'
-        }`}>
-          {userBid.isUpdate ? 'Updated' : 'Submitted'} on {formatDate(getBidDate(userBid))}
-        </p>
-        <p className={`text-sm mt-1 ${
-          getBidStatus(userBid) === 'accepted' ? 'text-green-600' :
-          getBidStatus(userBid) === 'rejected' ? 'text-red-600' :
-          'text-blue-600'
-        }`}>
-          Status: <span className={`font-medium capitalize ${
-            getBidStatus(userBid) === 'accepted' ? 'text-green-700' :
-            getBidStatus(userBid) === 'rejected' ? 'text-red-700' :
-            'text-yellow-600'
-          }`}>
-            {getBidStatus(userBid)}
-            {getBidStatus(userBid) === 'accepted' && ' 🎉'}
-            {getBidStatus(userBid) === 'rejected' && ' ❌'}
-          </span>
-        </p>
-        {getBidStatus(userBid) === 'accepted' && (
-          <p className="text-sm text-green-600 mt-2">
-            ✅ Congratulations! The seller accepted your offer. This item is now yours!
-          </p>
-        )}
-        {getBidStatus(userBid) === 'rejected' && (
-          <p className="text-sm text-red-600 mt-2">
-            ❌ The seller declined your offer. You can try making a new offer on another item.
-          </p>
-        )}
-      </div>
-      <button
-        onClick={handleBidButtonClick}
-        disabled={getBidStatus(userBid) === 'accepted' || getBidStatus(userBid) === 'rejected' || !isAvailable}
-        className="px-3 py-1 bg-blue-500 text-white rounded-lg text-sm hover:bg-blue-600 transition disabled:opacity-50 disabled:cursor-not-allowed"
-      >
-        {getBidStatus(userBid) === 'accepted' ? 'Offer Locked' : 
-         getBidStatus(userBid) === 'rejected' ? 'Offer Closed' : 
-         'Update'}
-      </button>
-    </div>
-  </div>
-)}
-        
-        
-
-
-        {/* Owner View: All Offers - Only shown to the listing owner */}
-{isOwner && currentBids.length > 0 && (
-  <div className="mt-6 p-4 bg-gray-50 rounded-xl">
-    <h3 className="font-semibold mb-3 text-gray-800">
-      Received Offers ({currentBids.length})
-      {!isAvailable && <span className="ml-2 text-green-600">• Item Sold</span>}
-    </h3>
-    <div className="space-y-2 max-h-60 overflow-y-auto">
-      {currentBids
-        .sort((a, b) => getBidAmount(b) - getBidAmount(a))
-        .map((bid, index) => (
-          <div
-            key={bid.bidId || `bid-${index}`}
-            className={`p-3 border rounded-lg ${
-              bid.bidStatus === 'accepted' ? 'border-green-300 bg-green-25' :
-              bid.bidStatus === 'rejected' ? 'border-red-300 bg-red-25' :
-              bid.isUpdate ? 'border-yellow-300 bg-yellow-25' : 'border-gray-200 bg-white'
-            }`}
+      {/* Enhanced Header with Back Button - Matching Home Theme */}
+      <div style={{ 
+        background: `linear-gradient(135deg, ${colors.primary} 0%, ${colors.secondary} 100%)`, 
+        padding: '1.5rem 0',
+        marginBottom: '3rem',
+        boxShadow: '0 4px 20px rgba(0,0,0,0.1)'
+      }}>
+        <Container>
+          <button
+            onClick={() => navigate(-1)}
+            style={{
+              background: 'rgba(255,255,255,0.15)',
+              border: '2px solid rgba(255,255,255,0.3)',
+              color: colors.light,
+              padding: '0.75rem 1.5rem',
+              borderRadius: '30px',
+              fontWeight: '600',
+              transition: 'all 0.3s ease',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.75rem',
+              backdropFilter: 'blur(10px)',
+              fontSize: '1rem'
+            }}
+            onMouseEnter={(e) => {
+              e.target.style.background = 'rgba(255,255,255,0.25)';
+              e.target.style.transform = 'translateX(-5px)';
+              e.target.style.borderColor = colors.accent;
+            }}
+            onMouseLeave={(e) => {
+              e.target.style.background = 'rgba(255,255,255,0.15)';
+              e.target.style.transform = 'translateX(0)';
+              e.target.style.borderColor = 'rgba(255,255,255,0.3)';
+            }}
           >
-            <div className="flex justify-between items-center">
-              <div>
-                <p className="font-medium text-gray-800">
-                  {bid.bidderName || "Unknown User"}
-                  {bid.isUpdate && <span className="ml-2 text-yellow-600 text-xs">(Updated)</span>}
-                  {bid.bidStatus === 'accepted' && <span className="ml-2 text-green-600 text-xs">✓ Accepted</span>}
-                  {bid.bidStatus === 'rejected' && <span className="ml-2 text-red-600 text-xs">✗ Rejected</span>}
-                </p>
-                <p className="text-sm text-gray-600">
-                  {formatDate(bid.date)}
-                </p>
-                {bid.isUpdate && bid.previousAmount && (
-                  <p className="text-xs text-gray-500">
-                    Previous: {formatCurrency(bid.previousAmount)}
-                  </p>
-                )}
-              </div>
-              <div className="text-right">
-                <p className="text-lg font-bold text-green-700">
-                  {formatCurrency(getBidAmount(bid))}
-                </p>
-                {!isAvailable && bid.bidStatus === 'accepted' && (
-                  <p className="text-xs text-green-600 font-medium">Sold to this buyer</p>
-                )}
-              </div>
-            </div>
-          </div>
-        ))}
-    </div>
-  </div>
-)}
-          {/* No Offers Message - Only for owner */}
-          {isAvailable && isOwner && currentBids.length === 0 && (
-            <div className="mt-6 p-4 bg-gray-100 rounded-xl text-center">
-              <p className="text-gray-600">
-                No offers received yet. Share your listing to get more visibility!
-              </p>
-            </div>
-          )}
-
-       {/* Call to Action for Users - Only shown to non-owners without offers */}
-{isAvailable && !isOwner && !userBid && !showBidCard && (
-  <div className="mt-6 p-4 bg-yellow-50 rounded-xl text-center">
-    <p className="text-gray-600 mb-2">
-      Interested in this item? Make an offer!
-    </p>
-    <button
-      onClick={handleBidButtonClick}
-      className="bg-yellow-500 text-white px-4 py-2 rounded-lg hover:bg-yellow-600 transition font-medium"
-    >
-      Start Bargaining
-    </button>
-  </div>
-)}
-
-{/* Sold Item Message for Users */}
-{!isAvailable && !isOwner && (
-  <div className="mt-6 p-4 bg-red-50 border border-red-200 rounded-xl">
-    <div className="text-center">
-      <p className="text-red-800 font-semibold">❌ This item has been sold</p>
-      <p className="text-red-600 text-sm mt-1">
-        This item is no longer available for purchase or offers.
-      </p>
-    </div>
-  </div>
-)}
-        </div>
+            <i className="fa-solid fa-arrow-left"></i>
+            Back to Browse
+          </button>
+        </Container>
       </div>
-    </div>
+
+      <Container>
+        <Row className="g-5">
+          {/* Enhanced Product Images Section - Matching Home Design */}
+          <Col lg={6}>
+            <Card 
+              className="border-0 shadow-lg"
+              style={{ 
+                borderRadius: '25px',
+                overflow: 'hidden',
+                background: 'white',
+                transition: 'all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.transform = 'translateY(-8px)';
+                e.currentTarget.style.boxShadow = '0 20px 40px rgba(0,0,0,0.15)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = 'translateY(0)';
+                e.currentTarget.style.boxShadow = '0 10px 30px rgba(0,0,0,0.1)';
+              }}
+            >
+              <div style={{ position: 'relative', cursor: 'pointer' }}>
+                <img
+                  src={selectedImage}
+                  alt={product.name}
+                  style={{
+                    width: '100%',
+                    height: '500px',
+                    objectFit: 'cover',
+                    transition: 'transform 0.4s ease'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.target.style.transform = 'scale(1.05)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.target.style.transform = 'scale(1)';
+                  }}
+                  onClick={() => openImageModal(selectedImage)}
+                />
+                
+                {/* Click to Zoom Indicator */}
+                <div style={{
+                  position: 'absolute',
+                  bottom: '20px',
+                  left: '20px',
+                  background: 'rgba(0,0,0,0.7)',
+                  color: 'white',
+                  padding: '0.6rem 1.2rem',
+                  borderRadius: '25px',
+                  fontSize: '0.85rem',
+                  fontWeight: '600',
+                  backdropFilter: 'blur(10px)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.5rem'
+                }}>
+                  <i className="fa-solid fa-expand"></i>
+                  Click to zoom
+                </div>
+                
+                {/* Condition Badge - Matching Home Style */}
+                {product.condition && (
+                  <div style={{
+                    position: 'absolute',
+                    top: '20px',
+                    left: '20px',
+                    background: colors.secondary,
+                    color: 'white',
+                    padding: '0.6rem 1.2rem',
+                    borderRadius: '25px',
+                    fontSize: '0.85rem',
+                    fontWeight: '700',
+                    textTransform: 'capitalize',
+                    boxShadow: '0 6px 20px rgba(0,0,0,0.2)',
+                    border: `2px solid white`
+                  }}>
+                    {product.condition}
+                  </div>
+                )}
+
+                {/* Availability Badge */}
+                <div style={{
+                  position: 'absolute',
+                  top: '20px',
+                  right: '20px',
+                  background: isAvailable ? '#28a745' : '#dc3545',
+                  color: 'white',
+                  padding: '0.6rem 1.2rem',
+                  borderRadius: '25px',
+                  fontSize: '0.85rem',
+                  fontWeight: '700',
+                  boxShadow: '0 6px 20px rgba(0,0,0,0.2)',
+                  border: `2px solid white`
+                }}>
+                  {isAvailable ? 'Available' : 'Sold'}
+                </div>
+
+                {/* Favorite Button - Enhanced */}
+                <button
+                  onClick={toggleFavorite}
+                  disabled={updatingFavorite || !user}
+                  style={{
+                    position: 'absolute',
+                    bottom: '20px',
+                    right: '20px',
+                    width: '55px',
+                    height: '55px',
+                    borderRadius: '50%',
+                    background: isFavorite ? 'rgba(220, 53, 69, 0.95)' : 'rgba(255, 255, 255, 0.95)',
+                    border: `3px solid ${isFavorite ? '#dc3545' : colors.primary}`,
+                    fontSize: '1.4rem',
+                    color: isFavorite ? 'white' : colors.primary,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    opacity: updatingFavorite ? 0.6 : 1,
+                    transition: 'all 0.3s ease',
+                    transform: 'scale(1)',
+                    backdropFilter: 'blur(10px)',
+                    boxShadow: '0 6px 20px rgba(0,0,0,0.2)'
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!updatingFavorite) {
+                      e.target.style.transform = 'scale(1.15)';
+                      e.target.style.background = isFavorite ? 'rgba(220, 53, 69, 1)' : 'rgba(255, 255, 255, 1)';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!updatingFavorite) {
+                      e.target.style.transform = 'scale(1)';
+                      e.target.style.background = isFavorite ? 'rgba(220, 53, 69, 0.95)' : 'rgba(255, 255, 255, 0.95)';
+                    }
+                  }}
+                  title={isFavorite ? "Remove from favorites" : "Add to favorites"}
+                >
+                  {updatingFavorite ? '⏳' : (isFavorite ? '❤️' : '🤍')}
+                </button>
+              </div>
+
+              {/* Enhanced Image Thumbnails */}
+              {product.images && product.images.length > 0 && (
+                <div className="p-4" style={{ background: 'rgba(240, 243, 245, 0.5)' }}>
+                  <h6 style={{ 
+                    color: colors.primary, 
+                    fontWeight: '700', 
+                    marginBottom: '1rem',
+                    fontSize: '1.1rem'
+                  }}>
+                    Product Images ({product.images.length})
+                  </h6>
+                  <Row className="g-3">
+                    {product.images.map((img, index) => (
+                      <Col key={index} xs={4} sm={3} md={2}>
+                        <div
+                          style={{
+                            height: '90px',
+                            borderRadius: '16px',
+                            overflow: 'hidden',
+                            cursor: 'pointer',
+                            border: `4px solid ${img === selectedImage ? colors.accent : 'transparent'}`,
+                            transition: 'all 0.3s ease',
+                            boxShadow: '0 4px 15px rgba(0,0,0,0.1)',
+                            position: 'relative'
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.transform = 'scale(1.08)';
+                            e.currentTarget.style.boxShadow = '0 8px 25px rgba(0,0,0,0.15)';
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.transform = 'scale(1)';
+                            e.currentTarget.style.boxShadow = '0 4px 15px rgba(0,0,0,0.1)';
+                          }}
+                          onClick={() => {
+                            setSelectedImage(img);
+                            openImageModal(img);
+                          }}
+                        >
+                          <img
+                            src={img}
+                            alt={`${product.name}-${index + 1}`}
+                            style={{
+                              width: '100%',
+                              height: '100%',
+                              objectFit: 'cover'
+                            }}
+                          />
+                          {/* Zoom icon overlay on hover */}
+                          <div style={{
+                            position: 'absolute',
+                            top: 0,
+                            left: 0,
+                            right: 0,
+                            bottom: 0,
+                            background: 'rgba(25, 83, 95, 0.8)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            opacity: 0,
+                            transition: 'opacity 0.3s ease',
+                            color: 'white',
+                            fontSize: '1.5rem'
+                          }}
+                          className="zoom-overlay"
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.opacity = '1';
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.opacity = '0';
+                          }}
+                          >
+                            <i className="fa-solid fa-expand"></i>
+                          </div>
+                        </div>
+                      </Col>
+                    ))}
+                  </Row>
+                </div>
+              )}
+            </Card>
+          </Col>
+
+          {/* Enhanced Product Info Section - Matching Home Design */}
+          <Col lg={6}>
+            <div style={{ padding: '0 1rem' }}>
+              {/* Product Header - Matching Home Typography */}
+              <div className="mb-4">
+                <h1 style={{ 
+                  color: colors.primary, 
+                  fontWeight: '700',
+                  fontSize: '2.5rem',
+                  marginBottom: '0.75rem',
+                  lineHeight: '1.2',
+                  position: 'relative'
+                }}>
+                  {product.name}
+                  <div style={{ 
+                    position: 'absolute', 
+                    bottom: '-10px', 
+                    left: '0', 
+                    width: '80px', 
+                    height: '4px', 
+                    background: 'linear-gradient(90deg, #0B7A75, #D7C9AA)',
+                    borderRadius: '2px'
+                  }}></div>
+                </h1>
+                
+                <div className="d-flex align-items-center gap-3 mb-4 mt-4">
+                  <span style={{ 
+                    background: colors.accent,
+                    color: colors.primary,
+                    padding: '0.5rem 1.25rem',
+                    borderRadius: '20px',
+                    fontSize: '0.9rem',
+                    fontWeight: '700',
+                    textTransform: 'capitalize',
+                    boxShadow: '0 4px 15px rgba(0,0,0,0.1)'
+                  }}>
+                    {product.category || 'General'}
+                  </span>
+                  
+                  {/* Cart Status Indicator */}
+                  <div style={{ 
+                    background: isInCart ? colors.secondary : 'transparent',
+                    color: isInCart ? 'white' : colors.primary,
+                    padding: '0.5rem 1rem',
+                    borderRadius: '20px',
+                    fontSize: '0.8rem',
+                    fontWeight: '600',
+                    border: `2px solid ${isInCart ? colors.secondary : colors.primary}`,
+                    transition: 'all 0.3s ease'
+                  }}>
+                    {isInCart ? '🛒 In Cart' : 'Add to Cart'}
+                  </div>
+                </div>
+              </div>
+
+              {/* Enhanced Pricing Section - Matching Home Style */}
+              <div className="mb-4 p-4" style={{ 
+                background: 'linear-gradient(135deg, rgba(25, 83, 95, 0.05) 0%, rgba(11, 122, 117, 0.05) 100%)',
+                borderRadius: '20px',
+                border: `2px solid ${colors.accent}30`
+              }}>
+                <div className="d-flex align-items-baseline gap-3 mb-2">
+                  <span style={{ 
+                    color: colors.secondary,
+                    fontSize: '2.5rem',
+                    fontWeight: '700',
+                  }}>
+                    {formatCurrency(product.price)}
+                  </span>
+                  
+                  {product.originalPrice && product.originalPrice > product.price && (
+                    <>
+                      <span style={{ 
+                        color: '#6c757d', 
+                        textDecoration: 'line-through', 
+                        fontSize: '1.5rem',
+                        fontWeight: '600'
+                      }}>
+                        {formatCurrency(product.originalPrice)}
+                      </span>
+                      {product.discount && (
+                        <span style={{ 
+                          color: '#dc3545',
+                          background: '#ffe6e6',
+                          padding: '0.4rem 0.9rem',
+                          borderRadius: '20px',
+                          fontSize: '0.9rem',
+                          fontWeight: '700',
+                          border: '2px solid #dc3545'
+                        }}>
+                          {product.discount}% OFF
+                        </span>
+                      )}
+                    </>
+                  )}
+                </div>
+                <p style={{ color: colors.primary, fontWeight: '600', margin: 0, fontSize: '1rem' }}>
+                  💰 Price is negotiable - Make an offer!
+                </p>
+              </div>
+
+              {/* Enhanced Action Buttons - Matching Home Style */}
+              {!isOwner && (
+                <Row className="g-3 mb-4">
+                  <Col sm={4}>
+                    <Button
+                      onClick={toggleCart}
+                      disabled={!isAvailable || updatingCart}
+                      className="w-100 border-0 d-flex align-items-center justify-content-center gap-2"
+                      style={{ 
+                        background: isInCart ? colors.secondary : colors.primary,
+                        padding: '1rem',
+                        borderRadius: '16px',
+                        fontWeight: '600',
+                        fontSize: '1rem',
+                        transition: 'all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
+                        boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
+                        height: '55px'
+                      }}
+                      onMouseEnter={(e) => {
+                        e.target.style.transform = 'translateY(-8px)';
+                        e.target.style.boxShadow = '0 12px 40px rgba(0,0,0,0.15)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.target.style.transform = 'translateY(0)';
+                        e.target.style.boxShadow = '0 4px 20px rgba(0,0,0,0.08)';
+                      }}
+                    >
+                      {updatingCart ? (
+                        <span>⏳ Updating...</span>
+                      ) : isInCart ? (
+                        <span>✅ In Cart</span>
+                      ) : (
+                        <span>🛒 Add to Cart</span>
+                      )}
+                    </Button>
+                  </Col>
+                  
+                  <Col sm={4}>
+                    <Button
+                      onClick={handleOfferButtonClick}
+                      disabled={!isAvailable || placingOffer || 
+                               (userOffer && (getOfferStatus(userOffer) === 'accepted' || getOfferStatus(userOffer) === 'rejected'))}
+                      className="w-100 border-0 d-flex align-items-center justify-content-center gap-2"
+                      style={{ 
+                        background: colors.accent,
+                        color: colors.primary,
+                        padding: '1rem',
+                        borderRadius: '16px',
+                        fontWeight: '600',
+                        fontSize: '1rem',
+                        transition: 'all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
+                        boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
+                        height: '55px',
+                        border: `2px solid ${colors.accent}`
+                      }}
+                      onMouseEnter={(e) => {
+                        e.target.style.transform = 'translateY(-8px)';
+                        e.target.style.boxShadow = '0 12px 40px rgba(0,0,0,0.15)';
+                        e.target.style.background = colors.primary;
+                        e.target.style.color = 'white';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.target.style.transform = 'translateY(0)';
+                        e.target.style.boxShadow = '0 4px 20px rgba(0,0,0,0.08)';
+                        e.target.style.background = colors.accent;
+                        e.target.style.color = colors.primary;
+                      }}
+                    >
+                      {!isAvailable ? "❌ Sold" :
+                       userOffer && getOfferStatus(userOffer) === 'accepted' ? "✅ Accepted" :
+                       userOffer && getOfferStatus(userOffer) === 'rejected' ? "❌ Closed" :
+                       userOffer ? "✏️ Update Offer" : "💰 Make Offer"}
+                    </Button>
+                  </Col>
+
+                  {/* BUY NOW BUTTON */}
+                  <Col sm={4}>
+                    <Button
+                      onClick={handleBuyNow}
+                      disabled={!isAvailable || updatingCart}
+                      className="w-100 border-0 d-flex align-items-center justify-content-center gap-2"
+                      style={{ 
+                        background: '#28a745',
+                        padding: '1rem',
+                        borderRadius: '16px',
+                        fontWeight: '600',
+                        fontSize: '1rem',
+                        color: 'white',
+                        transition: 'all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
+                        boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
+                        height: '55px'
+                      }}
+                      onMouseEnter={(e) => {
+                        e.target.style.transform = 'translateY(-8px)';
+                        e.target.style.boxShadow = '0 12px 40px rgba(0,0,0,0.15)';
+                        e.target.style.background = '#218838';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.target.style.transform = 'translateY(0)';
+                        e.target.style.boxShadow = '0 4px 20px rgba(0,0,0,0.08)';
+                        e.target.style.background = '#28a745';
+                      }}
+                    >
+                      {updatingCart ? "⏳ Processing..." : "🛍️ Buy Now"}
+                    </Button>
+                  </Col>
+                </Row>
+              )}
+
+              {/* Enhanced User Status */}
+              <div style={{ 
+                background: `linear-gradient(135deg, ${colors.primary}15, ${colors.secondary}15)`,
+                padding: '1.25rem',
+                borderRadius: '15px',
+                marginBottom: '2rem',
+                border: `2px solid ${colors.accent}30`,
+                textAlign: 'center'
+              }}>
+                <p style={{ 
+                  color: colors.primary, 
+                  margin: 0,
+                  fontWeight: '600',
+                  fontSize: '1rem'
+                }}>
+                  {user ? `👋 Welcome, ${user.name}! Ready to make this yours?` : "🔒 Please login to use all features"}
+                </p>
+              </div>
+
+              {/* Enhanced Owner Message */}
+              {isOwner && (
+                <div style={{ 
+                  background: `linear-gradient(135deg, ${colors.accent}20, ${colors.primary}10)`,
+                  border: `3px solid ${colors.accent}`,
+                  padding: '1.5rem',
+                  borderRadius: '15px',
+                  marginBottom: '2rem',
+                  textAlign: 'center'
+                }}>
+                  <p style={{ 
+                    color: colors.primary, 
+                    margin: 0,
+                    fontWeight: '700',
+                    fontSize: '1rem'
+                  }}>
+                    ⚠️ This is your own listing - Manage it from your profile
+                  </p>
+                </div>
+              )}
+
+              {/* Enhanced Offer Card */}
+              {showOfferCard && !isOwner && (
+                <Card 
+                  className="border-0 shadow-lg"
+                  style={{ 
+                    background: `linear-gradient(135deg, ${colors.accent}15, ${colors.primary}10)`,
+                    borderRadius: '20px',
+                    marginBottom: '2rem',
+                    border: `3px solid ${colors.accent}`,
+                    overflow: 'hidden'
+                  }}
+                >
+                  <Card.Body className="p-4">
+                    <div className="text-center mb-4">
+                      <h5 style={{ 
+                        color: colors.primary, 
+                        fontWeight: '700', 
+                        marginBottom: '0.5rem',
+                        fontSize: '1.3rem'
+                      }}>
+                        {userOffer ? 'Update Your Offer' : 'Make Your Offer'}
+                      </h5>
+                      <p style={{ color: colors.primary, fontWeight: '600', fontSize: '1rem' }}>
+                        💰 Bargain for the best price!
+                      </p>
+                    </div>
+                    
+                    {userOffer && (
+                      <div style={{ 
+                        background: 'rgba(25, 83, 95, 0.1)',
+                        padding: '1rem',
+                        borderRadius: '15px',
+                        marginBottom: '1.5rem',
+                        textAlign: 'center'
+                      }}>
+                        <p style={{ color: colors.primary, fontWeight: '600', margin: 0, fontSize: '1rem' }}>
+                          Current offer: <span style={{ color: colors.secondary, fontSize: '1.2rem' }}>{formatCurrency(getOfferAmount(userOffer))}</span>
+                        </p>
+                      </div>
+                    )}
+                    
+                    <div className="mb-4">
+                      <label style={{ 
+                        color: colors.primary, 
+                        fontWeight: '600', 
+                        marginBottom: '0.75rem', 
+                        display: 'block',
+                        fontSize: '1rem'
+                      }}>
+                        Offer Amount
+                      </label>
+                      <input
+                        type="number"
+                        placeholder={userOffer ? "Enter new offer amount..." : "Enter your offer amount..."}
+                        value={offerAmount}
+                        onChange={(e) => setOfferAmount(e.target.value)}
+                        style={{
+                          width: '100%',
+                          padding: '1rem',
+                          border: `2px solid ${colors.accent}`,
+                          borderRadius: '12px',
+                          fontSize: '1rem',
+                          fontWeight: '600',
+                          color: colors.primary,
+                          background: 'rgba(255,255,255,0.8)',
+                          transition: 'all 0.3s ease'
+                        }}
+                        onFocus={(e) => {
+                          e.target.style.background = 'white';
+                          e.target.style.boxShadow = `0 0 0 3px ${colors.accent}50`;
+                        }}
+                        onBlur={(e) => {
+                          e.target.style.background = 'rgba(255,255,255,0.8)';
+                          e.target.style.boxShadow = 'none';
+                        }}
+                        step="0.01"
+                      />
+                    </div>
+                    
+                    <div style={{ 
+                      background: 'rgba(215, 201, 170, 0.2)',
+                      padding: '1rem',
+                      borderRadius: '12px',
+                      marginBottom: '1.5rem'
+                    }}>
+                      <p style={{ color: colors.primary, fontSize: '0.9rem', margin: 0, fontWeight: '600' }}>
+                        💡 This is bargaining - offer any amount you think is fair! The seller will review your offer.
+                      </p>
+                    </div>
+                    
+                    <div className="d-flex gap-3">
+                      <Button
+                        onClick={() => setShowOfferCard(false)}
+                        style={{
+                          flex: 1,
+                          background: 'transparent',
+                          border: `2px solid ${colors.primary}`,
+                          color: colors.primary,
+                          padding: '0.9rem',
+                          borderRadius: '12px',
+                          fontWeight: '600',
+                          transition: 'all 0.3s ease',
+                          fontSize: '0.9rem'
+                        }}
+                        onMouseEnter={(e) => {
+                          e.target.style.background = colors.primary;
+                          e.target.style.color = 'white';
+                          e.target.style.transform = 'translateY(-2px)';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.target.style.background = 'transparent';
+                          e.target.style.color = colors.primary;
+                          e.target.style.transform = 'translateY(0)';
+                        }}
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        onClick={handlePlaceOffer}
+                        disabled={placingOffer || !offerAmount}
+                        style={{
+                          flex: 1,
+                          background: colors.primary,
+                          border: 'none',
+                          color: 'white',
+                          padding: '0.9rem',
+                          borderRadius: '12px',
+                          fontWeight: '600',
+                          transition: 'all 0.3s ease',
+                          fontSize: '0.9rem'
+                        }}
+                        onMouseEnter={(e) => {
+                          if (!placingOffer) {
+                            e.target.style.background = colors.secondary;
+                            e.target.style.transform = 'translateY(-2px)';
+                          }
+                        }}
+                        onMouseLeave={(e) => {
+                          if (!placingOffer) {
+                            e.target.style.background = colors.primary;
+                            e.target.style.transform = 'translateY(0)';
+                          }
+                        }}
+                      >
+                        {placingOffer ? "⏳ Submitting..." : (userOffer ? "✏️ Update Offer" : "💰 Submit Offer")}
+                      </Button>
+                    </div>
+                  </Card.Body>
+                </Card>
+              )}
+
+              {/* Enhanced User's Current Offer */}
+              {userOffer && !isOwner && !showOfferCard && (
+                <Card 
+                  className="border-0 shadow-lg mb-4"
+                  style={{ 
+                    background: getOfferStatus(userOffer) === 'accepted' ? 
+                      'linear-gradient(135deg, #d4edda, #c3e6cb)' :
+                      getOfferStatus(userOffer) === 'rejected' ? 
+                      'linear-gradient(135deg, #f8d7da, #f5c6cb)' :
+                      'linear-gradient(135deg, #cce7ff, #b3d9ff)',
+                    borderRadius: '16px',
+                    border: `2px solid ${
+                      getOfferStatus(userOffer) === 'accepted' ? '#28a745' :
+                      getOfferStatus(userOffer) === 'rejected' ? '#dc3545' : colors.primary
+                    }`,
+                    overflow: 'hidden'
+                  }}
+                >
+                  <Card.Body className="p-3">
+                    <div className="d-flex justify-content-between align-items-center">
+                      <div>
+                        <h6 style={{ 
+                          color: getOfferStatus(userOffer) === 'accepted' ? '#155724' :
+                                 getOfferStatus(userOffer) === 'rejected' ? '#721c24' : colors.primary,
+                          fontWeight: '700',
+                          margin: 0,
+                          fontSize: '1rem'
+                        }}>
+                          {getOfferStatus(userOffer) === 'accepted' ? '🎉 Offer Accepted!' : 
+                           getOfferStatus(userOffer) === 'rejected' ? '❌ Offer Declined' : 
+                           '💰 Your Current Offer'}
+                        </h6>
+                        <p style={{ 
+                          color: getOfferStatus(userOffer) === 'accepted' ? '#155724' :
+                                 getOfferStatus(userOffer) === 'rejected' ? '#721c24' : colors.primary,
+                          fontWeight: '700',
+                          margin: '0.25rem 0 0 0',
+                          fontSize: '1.1rem'
+                        }}>
+                          {formatCurrency(getOfferAmount(userOffer))}
+                        </p>
+                        <small style={{ 
+                          color: getOfferStatus(userOffer) === 'accepted' ? '#155724' :
+                                 getOfferStatus(userOffer) === 'rejected' ? '#721c24' : colors.primary,
+                          opacity: 0.8,
+                          fontSize: '0.8rem'
+                        }}>
+                          {getOfferStatus(userOffer) === 'pending' ? 'Waiting for seller response' :
+                           getOfferStatus(userOffer) === 'accepted' ? 'Congratulations! Proceed to checkout' :
+                           'Seller declined your offer'}
+                        </small>
+                      </div>
+                      <Button
+                        onClick={handleOfferButtonClick}
+                        disabled={getOfferStatus(userOffer) === 'accepted' || getOfferStatus(userOffer) === 'rejected' || !isAvailable}
+                        style={{
+                          background: colors.primary,
+                          border: 'none',
+                          borderRadius: '12px',
+                          padding: '0.6rem 1.2rem',
+                          fontSize: '0.8rem',
+                          fontWeight: '600',
+                          transition: 'all 0.3s ease'
+                        }}
+                        onMouseEnter={(e) => {
+                          if (!e.target.disabled) {
+                            e.target.style.background = colors.secondary;
+                            e.target.style.transform = 'scale(1.05)';
+                          }
+                        }}
+                        onMouseLeave={(e) => {
+                          if (!e.target.disabled) {
+                            e.target.style.background = colors.primary;
+                            e.target.style.transform = 'scale(1)';
+                          }
+                        }}
+                      >
+                        {getOfferStatus(userOffer) === 'accepted' ? '✅ Accepted' :
+                         getOfferStatus(userOffer) === 'rejected' ? '❌ Closed' : 'Update'}
+                      </Button>
+                    </div>
+                  </Card.Body>
+                </Card>
+              )}
+            </div>
+          </Col>
+        </Row>
+
+        {/* Enhanced Additional Information Accordion - Matching FAQ Style */}
+        <Row className="mt-5">
+          <Col lg={10} className="mx-auto">
+            <h2 className="text-center mb-4" style={{ 
+              color: colors.primary, 
+              fontWeight: '700',
+              fontSize: '2.5rem',
+              position: 'relative'
+            }}>
+              Product Details
+              <div style={{ 
+                position: 'absolute', 
+                bottom: '-10px', 
+                left: '50%', 
+                transform: 'translateX(-50%)', 
+                width: '80px', 
+                height: '4px', 
+                background: 'linear-gradient(90deg, #0B7A75, #D7C9AA)',
+                borderRadius: '2px'
+              }}></div>
+            </h2>
+
+            <Accordion defaultActiveKey="0" style={{ marginBottom: '3rem' }}>
+              {/* Description */}
+              <Accordion.Item eventKey="0">
+                <Accordion.Header>
+                  Product Description
+                </Accordion.Header>
+                <Accordion.Body>
+                  <p style={{ lineHeight: '1.6', margin: 0, fontSize: '1rem' }}>
+                    {product.description || "No description provided."}
+                  </p>
+                  {renderProductDetails()}
+                </Accordion.Body>
+              </Accordion.Item>
+
+              {/* Owner Information */}
+              <Accordion.Item eventKey="1">
+                <Accordion.Header>
+                  Seller Information
+                </Accordion.Header>
+                <Accordion.Body>
+                  <Row>
+                    <Col md={6}>
+                      <div style={{ marginBottom: '1rem' }}>
+                        <strong style={{ color: colors.primary }}>Name:</strong>
+                        <div style={{ color: colors.dark, fontWeight: '500' }}>{sellerInfo.name}</div>
+                      </div>
+                      <div style={{ marginBottom: '1rem' }}>
+                        <strong style={{ color: colors.primary }}>Location:</strong>
+                        <div style={{ color: colors.dark, fontWeight: '500' }}>{sellerInfo.location}</div>
+                      </div>
+                    </Col>
+                    <Col md={6}>
+                      <div style={{ marginBottom: '1rem' }}>
+                        <strong style={{ color: colors.primary }}>Rating:</strong>
+                        <div style={{ color: colors.dark, fontWeight: '500' }}>⭐ {sellerInfo.rating}</div>
+                      </div>
+                      <div style={{ marginBottom: '1rem' }}>
+                        <strong style={{ color: colors.primary }}>Completed Sales:</strong>
+                        <div style={{ color: colors.dark, fontWeight: '500' }}>{sellerInfo.sales}</div>
+                      </div>
+                    </Col>
+                  </Row>
+                </Accordion.Body>
+              </Accordion.Item>
+
+              {/* Offers (for owner) */}
+              {isOwner && currentOffers.length > 0 && (
+                <Accordion.Item eventKey="2">
+                  <Accordion.Header>
+                    Received Offers ({currentOffers.length})
+                  </Accordion.Header>
+                  <Accordion.Body>
+                    <div style={{ maxHeight: '300px', overflowY: 'auto' }}>
+                      {currentOffers
+                        .sort((a, b) => getOfferAmount(b) - getOfferAmount(a))
+                        .map((offer, index) => (
+                          <Card 
+                            key={offer.bidId || `offer-${index}`}
+                            className="mb-3 border-0 shadow-sm"
+                            style={{ 
+                              background: 'white',
+                              borderRadius: '10px'
+                            }}
+                          >
+                            <Card.Body className="p-3">
+                              <div className="d-flex justify-content-between align-items-center">
+                                <div>
+                                  <h6 style={{ color: colors.primary, margin: 0, fontWeight: '600' }}>
+                                    {offer.bidderName || "Unknown User"}
+                                  </h6>
+                                  <small style={{ color: colors.dark }}>
+                                    {formatDate(offer.date)}
+                                  </small>
+                                </div>
+                                <div className="text-end">
+                                  <div style={{ 
+                                    color: colors.secondary,
+                                    fontSize: '1.1rem',
+                                    fontWeight: '700'
+                                  }}>
+                                    {formatCurrency(getOfferAmount(offer))}
+                                  </div>
+                                  <small style={{ 
+                                    color: getOfferStatus(offer) === 'accepted' ? '#28a745' :
+                                           getOfferStatus(offer) === 'rejected' ? '#dc3545' : '#ffc107',
+                                    fontWeight: '600'
+                                  }}>
+                                    {getOfferStatus(offer)}
+                                  </small>
+                                </div>
+                              </div>
+                            </Card.Body>
+                          </Card>
+                        ))}
+                    </div>
+                  </Accordion.Body>
+                </Accordion.Item>
+              )}
+            </Accordion>
+          </Col>
+        </Row>
+      </Container>
+
+      {/* Enhanced Footer Section */}
+      <div style={{ 
+        background: `linear-gradient(135deg, ${colors.primary} 0%, ${colors.secondary} 100%)`,
+        padding: '3rem 0',
+        marginTop: '4rem',
+        color: colors.light,
+        textAlign: 'center'
+      }}>
+        <Container>
+          <h5 style={{ fontWeight: '700', marginBottom: '1rem', fontSize: '1.5rem' }}>
+            Ready to make this item yours?
+          </h5>
+          <p style={{ marginBottom: '2rem', opacity: 0.9, fontSize: '1.1rem' }}>
+            Join thousands of happy customers who found their perfect match on Thriftify!
+          </p>
+          <Button
+            onClick={() => navigate('/categories')}
+            style={{
+              background: colors.accent,
+              border: 'none',
+              color: colors.primary,
+              padding: '1rem 2.5rem',
+              borderRadius: '25px',
+              fontWeight: '700',
+              fontSize: '1.1rem',
+              transition: 'all 0.3s ease'
+            }}
+            onMouseEnter={(e) => {
+              e.target.style.transform = 'translateY(-3px)';
+              e.target.style.boxShadow = '0 10px 25px rgba(0,0,0,0.2)';
+            }}
+            onMouseLeave={(e) => {
+              e.target.style.transform = 'translateY(0)';
+              e.target.style.boxShadow = 'none';
+            }}
+          >
+            Continue Shopping
+          </Button>
+        </Container>
+      </div>
+    </Container>
   );
 };
 

@@ -44,7 +44,7 @@ export default function (db) {
       const hashedPassword = await bcrypt.hash(password, 10);
 
       //     Validate and set role
-      const allowedRoles = ["admin", "seller", "buyer", "user"];
+      const allowedRoles = [ "user"];
       const userRole = allowedRoles.includes(role) ? role : "user";
 
       //     Create a string-based ID (instead of ObjectId)

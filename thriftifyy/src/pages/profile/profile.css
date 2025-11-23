@@ -1,0 +1,15 @@
+.custom-tabs .nav-link {
+  background-color: #F0F3F5;   /* Default tab color */
+  color: #7B2D26;
+  margin-right: 5px;
+}
+
+.custom-tabs .nav-link.active {
+  background-color: #0B7A75 !important;  /* Active tab color */
+  color: #F0F3F5 !important;  /* Active tab color */
+}
+
+.custom-tabs .nav-link:hover {
+  background-color: #19535F !important;  /* Active tab color */
+  color: #F0F3F5 !important;  /* Active tab color */
+}

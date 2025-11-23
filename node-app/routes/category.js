@@ -17,30 +17,37 @@ export default function categoryRoute(db) {
   });
 
   // Get specific category by name
-  router.get("/:categoryName", async (req, res) => {
-    try {
-      const { categoryName } = req.params;
+// Get specific category by name
+router.get("/:categoryName", async (req, res) => {
+  try {
+    const { categoryName } = req.params;
 
-      const category = await categories.findOne({ name: categoryName });
-      if (!category) {
-        return res.status(404).json({ message: "Category not found." });
-      }
-
-      const categoryProducts = await products
-        .find({ categoryId: category._id })
-        .toArray();
-
-      res.json({
-        category: category.name,
-        description: category.description,
-        image: category.image,
-        results: categoryProducts,
-      });
-    } catch (error) {
-      console.error("Error fetching category:", error);
-      res.status(500).json({ error: "Internal server error" });
+    const category = await categories.findOne({ name: categoryName });
+    if (!category) {
+      return res.status(404).json({ message: "Category not found." });
     }
-  });
 
+    // Convert category._id to number for comparison, or keep as string
+    // This handles both string and number categoryIds
+    const categoryProducts = await products
+      .find({ 
+        $or: [
+          { categoryId: category._id }, // if categoryId is string
+          { categoryId: Number(category._id) } // if categoryId is number
+        ]
+      })
+      .toArray();
+
+    res.json({
+      category: category.name,
+      description: category.description,
+      image: category.image,
+      results: categoryProducts,
+    });
+  } catch (error) {
+    console.error("Error fetching category:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
   return router;
 }
