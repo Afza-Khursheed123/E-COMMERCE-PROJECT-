@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Sidebar } from "../components/adminComp/Sidebar";
-import { Dashboard } from "../pages/Dashboard";
+import { Dashboard } from  "../pages/Dashboard";
 import { OrderMgt } from "../pages/OrderMgt";
 import { UserMgt } from "../pages/UserMgt";
 import { PaymentMgt } from "../pages/PaymentMgt";

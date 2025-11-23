@@ -111,11 +111,7 @@ function FavoritesDrawer({ name, ...props }) {
         handleClose();
     };
 
-    // ✅ View all favorites (navigate to a potential favorites page)
-    const viewAllFavorites = () => {
-        navigate('/favorites');
-        handleClose();
-    };
+    
 
     // ✅ Format currency
     const formatCurrency = (amount) => {
@@ -356,18 +352,7 @@ function FavoritesDrawer({ name, ...props }) {
                                         {favorites.length} item{favorites.length !== 1 ? 's' : ''} in favorites
                                     </p>
                                     
-                                    <Button
-                                        style={{
-                                            backgroundColor: colors.accent,
-                                            border: 'none',
-                                            width: '100%',
-                                            padding: '10px'
-                                        }}
-                                        onClick={viewAllFavorites}
-                                    >
-                                        <i className="fa-solid fa-list me-2"></i>
-                                        View All Favorites
-                                    </Button>
+                                 
                                     
                                     {!currentUser && (
                                         <div 

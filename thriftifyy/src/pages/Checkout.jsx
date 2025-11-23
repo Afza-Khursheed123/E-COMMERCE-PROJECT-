@@ -110,8 +110,7 @@ const CheckoutPage = () => {
                 setPaymentStatus('success');
                 setOrderDetails(response.data.order);
                 setPaymentMessage(
-                    `Payment of $${response.data.amountTotal} received successfully! ` +
-                    `A confirmation email will be sent to ${response.data.customerEmail}.`
+                    `Payment of $${response.data.amountTotal} received successfully! `
                 );
 
                 // Clear cart after successful payment
@@ -391,18 +390,7 @@ const CheckoutPage = () => {
                                 </div>
                                 
                                 <div className="d-flex gap-3 justify-content-center">
-                                    <Button
-                                        style={{
-                                            backgroundColor: colors.primary,
-                                            border: 'none',
-                                            padding: '12px 30px',
-                                            borderRadius: '8px'
-                                        }}
-                                        onClick={() => navigate('/orders')}
-                                    >
-                                        <i className="fa-solid fa-box-open me-2"></i>
-                                        View Orders
-                                    </Button>
+                                   
                                     
                                     <Button
                                         variant="outline-primary"

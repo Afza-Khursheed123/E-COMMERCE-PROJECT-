@@ -17,6 +17,23 @@ function Cart({ name, ...props }) {
     // ✅ Get current user
     const currentUser = JSON.parse(localStorage.getItem('user'));
 
+    // ✅ Fetch cart count on component mount and when user changes
+    useEffect(() => {
+        fetchCartCount();
+    }, [currentUser]);
+
+    // ✅ Fetch only cart count (lightweight)
+    const fetchCartCount = async () => {
+        if (!currentUser) return;
+        
+        try {
+            const res = await api.get(`/cart/user/${currentUser._id || currentUser.id}`);
+            console.log("🛒 Cart count fetched on mount");
+        } catch (err) {
+            console.error("❌ Cart count fetch error:", err);
+        }
+    };
+
     const handleClose = () => setShow(false);
     const handleShow = () => {
         if (!currentUser) {
@@ -137,6 +154,7 @@ function Cart({ name, ...props }) {
             }
             
             fetchCart(); // This will recalculate total after fetch
+            fetchCartCount(); // Refresh the count
         } catch (error) {
             console.error("Update cart error:", error);
             alert("❌ Failed to update cart");

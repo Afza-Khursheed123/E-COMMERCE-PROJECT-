@@ -261,10 +261,11 @@ export default function stripeRoutes(db) {
               // Generate order ID
               const orderId = generateOrderId();
 
-              // Create order data
+              // ✅ FIXED: Create order data with array of product IDs
               orderData = {
                 _id: orderId,
-                productId: paymentInfo.products?.length === 1 ? paymentInfo.products[0].productId : 'multiple',
+                // ✅ FIXED: Always store as array, never as 'multiple'
+                productId: paymentInfo.products?.map(p => p.productId) || [],
                 userId: paymentInfo.userId,
                 status: 'Processing',
                 totalAmount: totals.total,
@@ -285,6 +286,7 @@ export default function stripeRoutes(db) {
               };
 
               console.log("💾 Saving order to Orders collection:", orderId);
+              console.log("📊 Product IDs being stored:", orderData.productId);
 
               // Save order
               const ordersCollection = db.collection('Orders');

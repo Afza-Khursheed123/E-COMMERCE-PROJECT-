@@ -1,16 +1,18 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Form from 'react-bootstrap/Form';
-import { Button, Card } from 'react-bootstrap';
+import { Button, Card, Alert } from 'react-bootstrap';
 import { Link } from 'react-router-dom';
 import colors from '../theme';
-import api from "../api"; // Import your API instance
+import api from "../api";
 
 const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
+  const [showSuspendedAlert, setShowSuspendedAlert] = useState(false);
+  const [suspendedUserData, setSuspendedUserData] = useState(null);
   const navigate = useNavigate();
 
   const gradientStyle = {
@@ -32,16 +34,27 @@ const Login = () => {
     marginTop: '20px',
   };
 
+  const suspendedAlertStyle = {
+    backgroundColor: '#FFF3CD',
+    border: '2px solid #FFEAA7',
+    borderRadius: '12px',
+    padding: '20px',
+    marginBottom: '20px',
+    textAlign: 'center',
+    animation: 'fadeIn 0.5s ease-in'
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setMessage("");
+    setShowSuspendedAlert(false);
+    setSuspendedUserData(null);
 
     // Check for admin credentials first
     if (email === "admin34@gmail.com" && password === "admin12345") {
       setMessage("Admin login successful!");
       
-      // Create admin user object
       const adminUser = {
         _id: "admin_id",
         name: "Admin",
@@ -49,13 +62,11 @@ const Login = () => {
         email: "admin34@gmail.com"
       };
       
-      // Store admin data in localStorage
       localStorage.setItem("user", JSON.stringify(adminUser));
       localStorage.setItem("isAdmin", "true");
       
       console.log("🔐 Admin login detected:", adminUser);
       
-      // Redirect to admin page after short delay
       setTimeout(() => {
         navigate("/admin");
       }, 1000);
@@ -69,10 +80,21 @@ const Login = () => {
       const res = await api.post("/login", { email, password });
       
       if (res.data.success) {
+        const userData = res.data.user;
+        
+        // This check is redundant now since backend handles suspension
+        // But keeping it for extra safety
+        if (userData.status === "Suspended") {
+          setSuspendedUserData(userData);
+          setShowSuspendedAlert(true);
+          setMessage("");
+          setLoading(false);
+          return;
+        }
+        
         setMessage("Login successful!");
         
         // Store user data in localStorage
-        const userData = res.data.user;
         localStorage.setItem("user", JSON.stringify(userData));
         localStorage.setItem("isAdmin", "false");
         
@@ -80,17 +102,15 @@ const Login = () => {
           id: userData._id || userData.id,
           name: userData.name,
           role: userData.role,
-          email: userData.email
+          email: userData.email,
+          status: userData.status
         });
         
         // Redirect after short delay
         setTimeout(() => {
-          // Store token if available
           if (res.data.token) {
             localStorage.setItem("token", res.data.token);
           }
-          
-          // Redirect all regular users to home page
           navigate("/home");
         }, 1000);
         
@@ -99,7 +119,21 @@ const Login = () => {
       }
     } catch (err) {
       console.error("Login error:", err);
-      setMessage(err.response?.data?.message || "⚠️ Server error. Please try again.");
+      console.log("Error response:", err.response?.data);
+      
+      // FIXED: Check for suspended account in error response
+      if (err.response?.status === 403 && 
+          (err.response?.data?.message?.includes("suspended") || 
+           err.response?.data?.user?.status === "Suspended")) {
+        
+        console.log("🚫 Suspended user detected:", err.response.data.user);
+        setSuspendedUserData(err.response.data.user);
+        setShowSuspendedAlert(true);
+        setMessage("");
+        
+      } else {
+        setMessage(err.response?.data?.message || "⚠️ Server error. Please try again.");
+      }
     } finally {
       setLoading(false);
     }
@@ -119,6 +153,62 @@ const Login = () => {
               Login to Thriftify
             </h3>
 
+            {/* Suspended User Alert */}
+            {showSuspendedAlert && (
+              <div style={suspendedAlertStyle}>
+                <div style={{
+                  fontSize: '48px',
+                  color: '#856404',
+                  marginBottom: '15px'
+                }}>
+                  ⚠️
+                </div>
+                <h4 style={{
+                  color: '#856404',
+                  fontWeight: '600',
+                  marginBottom: '15px'
+                }}>
+                  Account Under Review
+                </h4>
+                <p style={{
+                  color: '#856404',
+                  marginBottom: '10px',
+                  fontSize: '14px',
+                  lineHeight: '1.5'
+                }}>
+                  Dear <strong>{suspendedUserData?.name || 'User'}</strong>,
+                </p>
+                <p style={{
+                  color: '#856404',
+                  marginBottom: '15px',
+                  fontSize: '14px',
+                  lineHeight: '1.5'
+                }}>
+                  Your account is currently being monitored by our administration team due to 
+                  detection of unusual activities. This is a security measure to protect 
+                  our community and ensure a safe shopping experience for everyone.
+                </p>
+                <div style={{
+                  backgroundColor: '#FFF8E1',
+                  border: '1px solid #FFE082',
+                  borderRadius: '8px',
+                  padding: '12px',
+                  margin: '15px 0'
+                }}>
+                  <p style={{
+                    color: '#856404',
+                    fontSize: '12px',
+                    margin: 0,
+                    fontStyle: 'italic'
+                  }}>
+                    💡 <strong>What to do next:</strong> Please contact our support team 
+                    if you believe this is a mistake or for more information.
+                  </p>
+                </div>
+                
+              </div>
+            )}
+
             <Form onSubmit={handleSubmit}>
               {/* Email */}
               <Form.Group className="mb-3" controlId="formGroupEmail">
@@ -129,7 +219,10 @@ const Login = () => {
                   type="email"
                   placeholder="Enter your email"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  onChange={(e) => {
+                    setEmail(e.target.value);
+                    setShowSuspendedAlert(false);
+                  }}
                   required
                   disabled={loading}
                   style={{
@@ -149,7 +242,10 @@ const Login = () => {
                   type="password"
                   placeholder="Enter your password"
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  onChange={(e) => {
+                    setPassword(e.target.value);
+                    setShowSuspendedAlert(false);
+                  }}
                   required
                   disabled={loading}
                   style={{
@@ -221,11 +317,19 @@ const Login = () => {
                 </Link>
               </p>
             </Form>
-
-            
           </Card.Body>
         </Card>
       </div>
+
+      {/* Add some CSS for fade-in animation */}
+      <style>
+        {`
+          @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+          }
+        `}
+      </style>
     </>
   );
 };

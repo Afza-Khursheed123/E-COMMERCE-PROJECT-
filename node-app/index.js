@@ -18,16 +18,16 @@ import cartRoute from "./routes/cartRoute.js";
 import favoritesRoute from "./routes/favoritesRoute.js";
 import stripeRoutes from "./routes/stripeRoute.js";
 import orderRoute from "./routes/orders.js";
-// Add this after your other middleware
+import contactRoute from "./routes/contactRoute.js";
 import path from 'path';
 import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Serve static files from uploads directory
 const app = express();
 const port = 3000;
+
 // Add this to your server.js or create a test route
 app.get('/api/debug/stripe', (req, res) => {
   const stripeConfig = {
@@ -45,6 +45,7 @@ app.get('/api/debug/stripe', (req, res) => {
     config: stripeConfig
   });
 });
+
 // Middleware
 app.use(cors({ origin: "http://localhost:5173", credentials: true }));
 
@@ -57,6 +58,9 @@ app.use((req, res, next) => {
 });
 
 app.use(express.urlencoded({ extended: true }));
+
+// ✅ FIXED: Static file serving with correct path
+app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
 // Debug Middleware — to check incoming requests
 app.use((req, res, next) => {
@@ -84,8 +88,6 @@ async function startServer() {
 
     // Attach routes and pass the db instance to them
     app.use("/home", homeRoute(db));
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
-
     app.use("/products", productRoute(db));
     app.use("/category", categoryRoute(db));
     app.use("/login", loginRoute(db));
@@ -102,6 +104,47 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
     app.use("/cart", cartRoute(db));
     app.use("/favorites", favoritesRoute(db));
     app.use("/api/stripe", stripeRoutes(db));
+    app.use("/contact", contactRoute(db));
+
+    // ✅ ADDED: Test route to verify static file serving
+    app.get('/test-upload', (req, res) => {
+      const uploadsPath = path.join(__dirname, '../uploads');
+      res.json({
+        message: "Test upload route",
+        uploadsPath: uploadsPath,
+        exists: require('fs').existsSync(uploadsPath)
+      });
+    });
+
+    // ✅ ADDED: Debug route for uploads
+    app.get('/debug-uploads', (req, res) => {
+      const uploadsDir = path.join(__dirname, '../uploads');
+      const profileImagesDir = path.join(uploadsDir, 'profile-images');
+      
+      try {
+        const uploadsExists = require('fs').existsSync(uploadsDir);
+        const profileImagesExists = require('fs').existsSync(profileImagesDir);
+        
+        let files = [];
+        if (profileImagesExists) {
+          files = require('fs').readdirSync(profileImagesDir);
+        }
+        
+        res.json({
+          uploadsDir,
+          profileImagesDir,
+          uploadsExists,
+          profileImagesExists,
+          files: files.slice(0, 10) // Show first 10 files
+        });
+      } catch (error) {
+        res.json({
+          error: error.message,
+          uploadsDir,
+          profileImagesDir
+        });
+      }
+    });
 
     app.listen(port, () => console.log(`🚀 Server running on http://localhost:${port}`));
   } catch (err) {

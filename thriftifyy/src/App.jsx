@@ -32,6 +32,7 @@ function UserDebug() {
 // <UserDebug />
 function App() {
   return (
+    
     <Routes>
       <Route path="/" element={<Layout />}>
         <Route index element={<Home />} />
@@ -43,7 +44,8 @@ function App() {
         <Route path="profile" element={<Profile />} />
         <Route path="contact" element={<Contact />} />
         {/* Remove favorites route since we're using drawer now */}
-      
+      <Route path="/category" element={<Categories />} />
+
       <Route path="/sellerhomepage" element={<Home />} />
       <Route path="/category/:categoryName" element={<CategoryPage />} />
       <Route path="/products/:id" element={<ProductPage />} />

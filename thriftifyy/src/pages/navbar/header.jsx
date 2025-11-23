@@ -47,7 +47,7 @@ function Header() {
             </Nav.Link>
             <Nav.Link
               as={Link}
-              to="/categories"
+              to="/category"
               className="nav-link-custom"
             >
               Categories

@@ -396,20 +396,7 @@ function OrdersDrawer({ name, ...props }) {
                             }}
                         >
                             <div className="d-flex gap-2">
-                                <Button
-                                    style={{
-                                        backgroundColor: colors.primary,
-                                        border: 'none',
-                                        flex: 1
-                                    }}
-                                    onClick={() => {
-                                        handleClose();
-                                        navigate('/orders');
-                                    }}
-                                >
-                                    <i className="fa-solid fa-list me-2"></i>
-                                    View All Orders
-                                </Button>
+                               
                                 <Button
                                     variant="outline-primary"
                                     style={{

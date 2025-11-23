@@ -2,7 +2,7 @@ import React, { useEffect, useState, useCallback, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import api from "../api";
 import Loader from "../components/Loader";
-import { Container, Row, Col, Card, Button, Accordion, Modal } from 'react-bootstrap';
+import { Container, Row, Col, Card, Button, Accordion, Modal, Badge } from 'react-bootstrap';
 
 const ProductPage = () => {
   const { id } = useParams();
@@ -38,16 +38,16 @@ const ProductPage = () => {
 
   const hasFetched = useRef(false);
 
-  // Theme colors matching your home page exactly
+  // Using your exact color theme from CSS
   const colors = {
-    primary: "#19535F",
-    secondary: "#0B7A75", 
-    accent: "#D7C9AA",
-    light: "#F0F3F5",
-    dark: "#1a1a1a",
-    badge: "#19535F",
-    bg: "#19535F",
-    text: "#F0F3F5"
+    primary: "#19535F",      // Dark teal - navbar background
+    secondary: "#0B7A75",    // Medium teal - accents
+    accent: "#D7C9AA",       // Beige - highlights
+    light: "#F0F3F5",        // Light gray - text on dark
+    background: "#fffff",   // Peach - body background
+    dark: "#2D3748",         // Dark gray - text
+    success: "#48BB78",      // Green - success states
+    error: "#F56565"         // Red - error states
   };
 
   // ✅ Get current user from localStorage
@@ -367,26 +367,31 @@ const ProductPage = () => {
 
     return (
       <div className="mt-4">
-        <h4 style={{ color: colors.primary, fontWeight: '600', marginBottom: '1rem' }}>Product Specifications</h4>
+        <h4 style={{ color: colors.primary, fontWeight: '600', marginBottom: '1.5rem' }}>Product Specifications</h4>
         <Row>
           {detailEntries.map(([key, value]) => (
             <Col key={key} xs={6} md={4} className="mb-3">
-              <div style={{ 
-                background: 'rgba(215, 201, 170, 0.1)', 
-                padding: '0.75rem', 
-                borderRadius: '8px',
-                border: `1px solid ${colors.accent}20`
-              }}>
+              <div 
+                className="hover-shadow"
+                style={{ 
+                  background: 'white',
+                  padding: '1rem', 
+                  borderRadius: '8px',
+                  border: `1px solid ${colors.accent}`,
+                  height: '100%',
+                  transition: 'all 0.3s ease'
+                }}
+              >
                 <div style={{ 
-                  fontSize: '0.8rem', 
+                  fontSize: '0.85rem', 
                   color: colors.primary, 
                   fontWeight: '600',
                   textTransform: 'capitalize',
-                  marginBottom: '0.25rem'
+                  marginBottom: '0.5rem'
                 }}>
                   {key.replace(/([A-Z])/g, ' $1').trim()}
                 </div>
-                <div style={{ fontSize: '0.9rem', color: colors.dark, fontWeight: '500' }}>
+                <div style={{ fontSize: '0.95rem', color: colors.dark, fontWeight: '500' }}>
                   {value}
                 </div>
               </div>
@@ -414,11 +419,11 @@ const ProductPage = () => {
 
   return (
     <Container fluid style={{ 
-      background: 'linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%)',
+      background: colors.background,
       minHeight: '100vh',
       padding: 0 
     }}>
-      {/* Image Modal for Enhanced Viewing */}
+      {/* Enhanced Image Modal */}
       <Modal 
         show={showImageModal} 
         onHide={() => setShowImageModal(false)} 
@@ -431,7 +436,7 @@ const ProductPage = () => {
             {product.name} - Full View
           </Modal.Title>
         </Modal.Header>
-        <Modal.Body className="text-center p-0">
+        <Modal.Body className="text-center p-0" style={{ background: '#f8f9fa' }}>
           <img
             src={modalImage}
             alt={product.name}
@@ -445,22 +450,23 @@ const ProductPage = () => {
         </Modal.Body>
       </Modal>
 
-      {/* Enhanced Header with Back Button - Matching Home Theme */}
+      {/* Modern Header with Your Theme Colors */}
       <div style={{ 
-        background: `linear-gradient(135deg, ${colors.primary} 0%, ${colors.secondary} 100%)`, 
-        padding: '1.5rem 0',
-        marginBottom: '3rem',
+        background: colors.primary, 
+        padding: '2rem 0',
+        marginBottom: '2rem',
         boxShadow: '0 4px 20px rgba(0,0,0,0.1)'
       }}>
         <Container>
           <button
             onClick={() => navigate(-1)}
+            className="hover-shadow"
             style={{
-              background: 'rgba(255,255,255,0.15)',
-              border: '2px solid rgba(255,255,255,0.3)',
+              background: 'rgba(240, 243, 245, 0.15)',
+              border: `2px solid ${colors.accent}`,
               color: colors.light,
               padding: '0.75rem 1.5rem',
-              borderRadius: '30px',
+              borderRadius: '8px',
               fontWeight: '600',
               transition: 'all 0.3s ease',
               display: 'flex',
@@ -468,16 +474,6 @@ const ProductPage = () => {
               gap: '0.75rem',
               backdropFilter: 'blur(10px)',
               fontSize: '1rem'
-            }}
-            onMouseEnter={(e) => {
-              e.target.style.background = 'rgba(255,255,255,0.25)';
-              e.target.style.transform = 'translateX(-5px)';
-              e.target.style.borderColor = colors.accent;
-            }}
-            onMouseLeave={(e) => {
-              e.target.style.background = 'rgba(255,255,255,0.15)';
-              e.target.style.transform = 'translateX(0)';
-              e.target.style.borderColor = 'rgba(255,255,255,0.3)';
             }}
           >
             <i className="fa-solid fa-arrow-left"></i>
@@ -487,57 +483,100 @@ const ProductPage = () => {
       </div>
 
       <Container>
-        <Row className="g-5">
-          {/* Enhanced Product Images Section - Matching Home Design */}
+        <Row className="g-4">
+          {/* Product Images Section */}
           <Col lg={6}>
             <Card 
-              className="border-0 shadow-lg"
+              className="border-0 shadow hover-shadow"
               style={{ 
-                borderRadius: '25px',
+                borderRadius: '12px',
                 overflow: 'hidden',
                 background: 'white',
-                transition: 'all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)'
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.transform = 'translateY(-8px)';
-                e.currentTarget.style.boxShadow = '0 20px 40px rgba(0,0,0,0.15)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.transform = 'translateY(0)';
-                e.currentTarget.style.boxShadow = '0 10px 30px rgba(0,0,0,0.1)';
+                transition: 'all 0.3s ease'
               }}
             >
               <div style={{ position: 'relative', cursor: 'pointer' }}>
                 <img
                   src={selectedImage}
                   alt={product.name}
+                  className="card-img-hover"
                   style={{
                     width: '100%',
-                    height: '500px',
-                    objectFit: 'cover',
-                    transition: 'transform 0.4s ease'
-                  }}
-                  onMouseEnter={(e) => {
-                    e.target.style.transform = 'scale(1.05)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.target.style.transform = 'scale(1)';
+                    height: '400px',
+                    objectFit: 'cover'
                   }}
                   onClick={() => openImageModal(selectedImage)}
                 />
                 
-                {/* Click to Zoom Indicator */}
+                {/* Status Badges */}
                 <div style={{
                   position: 'absolute',
-                  bottom: '20px',
-                  left: '20px',
-                  background: 'rgba(0,0,0,0.7)',
-                  color: 'white',
-                  padding: '0.6rem 1.2rem',
-                  borderRadius: '25px',
-                  fontSize: '0.85rem',
+                  top: '16px',
+                  left: '16px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '8px'
+                }}>
+                  {product.condition && (
+                    <Badge style={{ 
+                      background: colors.secondary,
+                      padding: '0.5rem 1rem',
+                      fontSize: '0.8rem',
+                      fontWeight: '600',
+                      border: `2px solid ${colors.light}`
+                    }}>
+                      {product.condition}
+                    </Badge>
+                  )}
+                  <Badge style={{ 
+                    background: isAvailable ? colors.success : colors.error,
+                    padding: '0.5rem 1rem',
+                    fontSize: '0.8rem',
+                    fontWeight: '600',
+                    border: `2px solid ${colors.light}`
+                  }}>
+                    {isAvailable ? 'Available' : 'Sold'}
+                  </Badge>
+                </div>
+
+                {/* Favorite Button */}
+                <button
+                  onClick={toggleFavorite}
+                  disabled={updatingFavorite || !user}
+                  className="hover-shadow"
+                  style={{
+                    position: 'absolute',
+                    top: '16px',
+                    right: '16px',
+                    width: '48px',
+                    height: '48px',
+                    borderRadius: '50%',
+                    background: isFavorite ? colors.error : 'rgba(255, 255, 255, 0.95)',
+                    border: `2px solid ${isFavorite ? colors.error : colors.primary}`,
+                    fontSize: '1.2rem',
+                    color: isFavorite ? 'white' : colors.primary,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    opacity: updatingFavorite ? 0.6 : 1,
+                    transition: 'all 0.3s ease',
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
+                  }}
+                >
+                  {updatingFavorite ? '⏳' : (isFavorite ? '❤️' : '🤍')}
+                </button>
+
+                {/* Zoom Indicator */}
+                <div style={{
+                  position: 'absolute',
+                  bottom: '16px',
+                  left: '16px',
+                  background: 'rgba(25, 83, 95, 0.9)',
+                  color: colors.light,
+                  padding: '0.5rem 1rem',
+                  borderRadius: '8px',
+                  fontSize: '0.8rem',
                   fontWeight: '600',
-                  backdropFilter: 'blur(10px)',
                   display: 'flex',
                   alignItems: 'center',
                   gap: '0.5rem'
@@ -545,123 +584,32 @@ const ProductPage = () => {
                   <i className="fa-solid fa-expand"></i>
                   Click to zoom
                 </div>
-                
-                {/* Condition Badge - Matching Home Style */}
-                {product.condition && (
-                  <div style={{
-                    position: 'absolute',
-                    top: '20px',
-                    left: '20px',
-                    background: colors.secondary,
-                    color: 'white',
-                    padding: '0.6rem 1.2rem',
-                    borderRadius: '25px',
-                    fontSize: '0.85rem',
-                    fontWeight: '700',
-                    textTransform: 'capitalize',
-                    boxShadow: '0 6px 20px rgba(0,0,0,0.2)',
-                    border: `2px solid white`
-                  }}>
-                    {product.condition}
-                  </div>
-                )}
-
-                {/* Availability Badge */}
-                <div style={{
-                  position: 'absolute',
-                  top: '20px',
-                  right: '20px',
-                  background: isAvailable ? '#28a745' : '#dc3545',
-                  color: 'white',
-                  padding: '0.6rem 1.2rem',
-                  borderRadius: '25px',
-                  fontSize: '0.85rem',
-                  fontWeight: '700',
-                  boxShadow: '0 6px 20px rgba(0,0,0,0.2)',
-                  border: `2px solid white`
-                }}>
-                  {isAvailable ? 'Available' : 'Sold'}
-                </div>
-
-                {/* Favorite Button - Enhanced */}
-                <button
-                  onClick={toggleFavorite}
-                  disabled={updatingFavorite || !user}
-                  style={{
-                    position: 'absolute',
-                    bottom: '20px',
-                    right: '20px',
-                    width: '55px',
-                    height: '55px',
-                    borderRadius: '50%',
-                    background: isFavorite ? 'rgba(220, 53, 69, 0.95)' : 'rgba(255, 255, 255, 0.95)',
-                    border: `3px solid ${isFavorite ? '#dc3545' : colors.primary}`,
-                    fontSize: '1.4rem',
-                    color: isFavorite ? 'white' : colors.primary,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    opacity: updatingFavorite ? 0.6 : 1,
-                    transition: 'all 0.3s ease',
-                    transform: 'scale(1)',
-                    backdropFilter: 'blur(10px)',
-                    boxShadow: '0 6px 20px rgba(0,0,0,0.2)'
-                  }}
-                  onMouseEnter={(e) => {
-                    if (!updatingFavorite) {
-                      e.target.style.transform = 'scale(1.15)';
-                      e.target.style.background = isFavorite ? 'rgba(220, 53, 69, 1)' : 'rgba(255, 255, 255, 1)';
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    if (!updatingFavorite) {
-                      e.target.style.transform = 'scale(1)';
-                      e.target.style.background = isFavorite ? 'rgba(220, 53, 69, 0.95)' : 'rgba(255, 255, 255, 0.95)';
-                    }
-                  }}
-                  title={isFavorite ? "Remove from favorites" : "Add to favorites"}
-                >
-                  {updatingFavorite ? '⏳' : (isFavorite ? '❤️' : '🤍')}
-                </button>
               </div>
 
-              {/* Enhanced Image Thumbnails */}
+              {/* Image Thumbnails */}
               {product.images && product.images.length > 0 && (
-                <div className="p-4" style={{ background: 'rgba(240, 243, 245, 0.5)' }}>
+                <div className="p-3" style={{ background: colors.light }}>
                   <h6 style={{ 
                     color: colors.primary, 
-                    fontWeight: '700', 
-                    marginBottom: '1rem',
-                    fontSize: '1.1rem'
+                    fontWeight: '600', 
+                    marginBottom: '1rem'
                   }}>
                     Product Images ({product.images.length})
                   </h6>
-                  <Row className="g-3">
+                  <Row className="g-2">
                     {product.images.map((img, index) => (
                       <Col key={index} xs={4} sm={3} md={2}>
                         <div
+                          className="hover-shadow"
                           style={{
-                            height: '90px',
-                            borderRadius: '16px',
+                            height: '80px',
+                            borderRadius: '8px',
                             overflow: 'hidden',
                             cursor: 'pointer',
-                            border: `4px solid ${img === selectedImage ? colors.accent : 'transparent'}`,
-                            transition: 'all 0.3s ease',
-                            boxShadow: '0 4px 15px rgba(0,0,0,0.1)',
-                            position: 'relative'
+                            border: `3px solid ${img === selectedImage ? colors.accent : 'transparent'}`,
+                            transition: 'all 0.3s ease'
                           }}
-                          onMouseEnter={(e) => {
-                            e.currentTarget.style.transform = 'scale(1.08)';
-                            e.currentTarget.style.boxShadow = '0 8px 25px rgba(0,0,0,0.15)';
-                          }}
-                          onMouseLeave={(e) => {
-                            e.currentTarget.style.transform = 'scale(1)';
-                            e.currentTarget.style.boxShadow = '0 4px 15px rgba(0,0,0,0.1)';
-                          }}
-                          onClick={() => {
-                            setSelectedImage(img);
-                            openImageModal(img);
-                          }}
+                          onClick={() => setSelectedImage(img)}
                         >
                           <img
                             src={img}
@@ -672,32 +620,6 @@ const ProductPage = () => {
                               objectFit: 'cover'
                             }}
                           />
-                          {/* Zoom icon overlay on hover */}
-                          <div style={{
-                            position: 'absolute',
-                            top: 0,
-                            left: 0,
-                            right: 0,
-                            bottom: 0,
-                            background: 'rgba(25, 83, 95, 0.8)',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            opacity: 0,
-                            transition: 'opacity 0.3s ease',
-                            color: 'white',
-                            fontSize: '1.5rem'
-                          }}
-                          className="zoom-overlay"
-                          onMouseEnter={(e) => {
-                            e.currentTarget.style.opacity = '1';
-                          }}
-                          onMouseLeave={(e) => {
-                            e.currentTarget.style.opacity = '0';
-                          }}
-                          >
-                            <i className="fa-solid fa-expand"></i>
-                          </div>
                         </div>
                       </Col>
                     ))}
@@ -707,304 +629,272 @@ const ProductPage = () => {
             </Card>
           </Col>
 
-          {/* Enhanced Product Info Section - Matching Home Design */}
+          {/* Product Info Section */}
           <Col lg={6}>
-            <div style={{ padding: '0 1rem' }}>
-              {/* Product Header - Matching Home Typography */}
+            <div style={{ padding: '0 0.5rem' }}>
+              {/* Product Header */}
               <div className="mb-4">
-                <h1 style={{ 
-                  color: colors.primary, 
-                  fontWeight: '700',
-                  fontSize: '2.5rem',
-                  marginBottom: '0.75rem',
-                  lineHeight: '1.2',
-                  position: 'relative'
-                }}>
-                  {product.name}
-                  <div style={{ 
-                    position: 'absolute', 
-                    bottom: '-10px', 
-                    left: '0', 
-                    width: '80px', 
-                    height: '4px', 
-                    background: 'linear-gradient(90deg, #0B7A75, #D7C9AA)',
-                    borderRadius: '2px'
-                  }}></div>
-                </h1>
-                
-                <div className="d-flex align-items-center gap-3 mb-4 mt-4">
-                  <span style={{ 
+                <div className="d-flex justify-content-between align-items-start mb-3">
+                  <h1 style={{ 
+                    color: colors.primary, 
+                    fontWeight: '700',
+                    fontSize: '2.25rem',
+                    margin: 0,
+                    flex: 1
+                  }}>
+                    {product.name}
+                  </h1>
+                  <Badge style={{ 
                     background: colors.accent,
                     color: colors.primary,
-                    padding: '0.5rem 1.25rem',
-                    borderRadius: '20px',
+                    padding: '0.5rem 1rem',
                     fontSize: '0.9rem',
-                    fontWeight: '700',
-                    textTransform: 'capitalize',
-                    boxShadow: '0 4px 15px rgba(0,0,0,0.1)'
+                    fontWeight: '600'
                   }}>
                     {product.category || 'General'}
-                  </span>
-                  
-                  {/* Cart Status Indicator */}
+                  </Badge>
+                </div>
+                
+                {isInCart && (
                   <div style={{ 
-                    background: isInCart ? colors.secondary : 'transparent',
-                    color: isInCart ? 'white' : colors.primary,
-                    padding: '0.5rem 1rem',
-                    borderRadius: '20px',
-                    fontSize: '0.8rem',
-                    fontWeight: '600',
-                    border: `2px solid ${isInCart ? colors.secondary : colors.primary}`,
-                    transition: 'all 0.3s ease'
-                  }}>
-                    {isInCart ? '🛒 In Cart' : 'Add to Cart'}
-                  </div>
-                </div>
-              </div>
-
-              {/* Enhanced Pricing Section - Matching Home Style */}
-              <div className="mb-4 p-4" style={{ 
-                background: 'linear-gradient(135deg, rgba(25, 83, 95, 0.05) 0%, rgba(11, 122, 117, 0.05) 100%)',
-                borderRadius: '20px',
-                border: `2px solid ${colors.accent}30`
-              }}>
-                <div className="d-flex align-items-baseline gap-3 mb-2">
-                  <span style={{ 
                     color: colors.secondary,
-                    fontSize: '2.5rem',
-                    fontWeight: '700',
+                    fontWeight: '600',
+                    fontSize: '0.9rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem'
                   }}>
-                    {formatCurrency(product.price)}
-                  </span>
-                  
-                  {product.originalPrice && product.originalPrice > product.price && (
-                    <>
-                      <span style={{ 
-                        color: '#6c757d', 
-                        textDecoration: 'line-through', 
-                        fontSize: '1.5rem',
-                        fontWeight: '600'
-                      }}>
-                        {formatCurrency(product.originalPrice)}
-                      </span>
-                      {product.discount && (
-                        <span style={{ 
-                          color: '#dc3545',
-                          background: '#ffe6e6',
-                          padding: '0.4rem 0.9rem',
-                          borderRadius: '20px',
-                          fontSize: '0.9rem',
-                          fontWeight: '700',
-                          border: '2px solid #dc3545'
-                        }}>
-                          {product.discount}% OFF
-                        </span>
-                      )}
-                    </>
-                  )}
-                </div>
-                <p style={{ color: colors.primary, fontWeight: '600', margin: 0, fontSize: '1rem' }}>
-                  💰 Price is negotiable - Make an offer!
-                </p>
+                    <i className="fa-solid fa-cart-shopping"></i>
+                    Added to Cart
+                  </div>
+                )}
               </div>
 
-              {/* Enhanced Action Buttons - Matching Home Style */}
+              {/* Pricing Section */}
+              <Card className="border-0 mb-4 hover-shadow" style={{ background: `linear-gradient(135deg, ${colors.primary}15, ${colors.secondary}15)` }}>
+                <Card.Body className="p-3">
+                  <div className="d-flex align-items-baseline gap-3 mb-2">
+                    <span style={{ 
+                      color: colors.secondary,
+                      fontSize: '2.25rem',
+                      fontWeight: '700',
+                    }}>
+                      {formatCurrency(product.price)}
+                    </span>
+                    
+                    {product.originalPrice && product.originalPrice > product.price && (
+                      <>
+                        <span style={{ 
+                          color: '#6c757d', 
+                          textDecoration: 'line-through', 
+                          fontSize: '1.5rem',
+                          fontWeight: '500'
+                        }}>
+                          {formatCurrency(product.originalPrice)}
+                        </span>
+                        {product.discount && (
+                          <Badge style={{ 
+                            background: colors.error,
+                            color: 'white',
+                            padding: '0.4rem 0.8rem',
+                            fontSize: '0.8rem',
+                            fontWeight: '600'
+                          }}>
+                            {product.discount}% OFF
+                          </Badge>
+                        )}
+                      </>
+                    )}
+                  </div>
+                  <p style={{ color: colors.primary, fontWeight: '500', margin: 0, fontSize: '0.9rem' }}>
+                    <i className="fa-solid fa-handshake" style={{ marginRight: '0.5rem' }}></i>
+                    Price is negotiable - Make an offer!
+                  </p>
+                </Card.Body>
+              </Card>
+
+              {/* Action Buttons */}
               {!isOwner && (
                 <Row className="g-3 mb-4">
-                  <Col sm={4}>
+                  <Col sm={6}>
                     <Button
                       onClick={toggleCart}
                       disabled={!isAvailable || updatingCart}
-                      className="w-100 border-0 d-flex align-items-center justify-content-center gap-2"
+                      className="w-100 border-0 hover-shadow d-flex align-items-center justify-content-center gap-2"
                       style={{ 
                         background: isInCart ? colors.secondary : colors.primary,
                         padding: '1rem',
-                        borderRadius: '16px',
+                        borderRadius: '8px',
                         fontWeight: '600',
                         fontSize: '1rem',
-                        transition: 'all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
-                        boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
-                        height: '55px'
-                      }}
-                      onMouseEnter={(e) => {
-                        e.target.style.transform = 'translateY(-8px)';
-                        e.target.style.boxShadow = '0 12px 40px rgba(0,0,0,0.15)';
-                      }}
-                      onMouseLeave={(e) => {
-                        e.target.style.transform = 'translateY(0)';
-                        e.target.style.boxShadow = '0 4px 20px rgba(0,0,0,0.08)';
+                        transition: 'all 0.3s ease',
+                        height: '54px'
                       }}
                     >
                       {updatingCart ? (
-                        <span>⏳ Updating...</span>
+                        <span className="loading-spinner" style={{ width: '20px', height: '20px' }}></span>
                       ) : isInCart ? (
-                        <span>✅ In Cart</span>
+                        <>
+                          <i className="fa-solid fa-check"></i>
+                          In Cart
+                        </>
                       ) : (
-                        <span>🛒 Add to Cart</span>
+                        <>
+                          <i className="fa-solid fa-cart-plus"></i>
+                          Add to Cart
+                        </>
                       )}
                     </Button>
                   </Col>
                   
-                  <Col sm={4}>
+                  <Col sm={6}>
                     <Button
                       onClick={handleOfferButtonClick}
                       disabled={!isAvailable || placingOffer || 
                                (userOffer && (getOfferStatus(userOffer) === 'accepted' || getOfferStatus(userOffer) === 'rejected'))}
-                      className="w-100 border-0 d-flex align-items-center justify-content-center gap-2"
+                      className="w-100 border-0 hover-shadow d-flex align-items-center justify-content-center gap-2"
                       style={{ 
                         background: colors.accent,
                         color: colors.primary,
                         padding: '1rem',
-                        borderRadius: '16px',
+                        borderRadius: '8px',
                         fontWeight: '600',
                         fontSize: '1rem',
-                        transition: 'all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
-                        boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
-                        height: '55px',
+                        transition: 'all 0.3s ease',
+                        height: '54px',
                         border: `2px solid ${colors.accent}`
                       }}
-                      onMouseEnter={(e) => {
-                        e.target.style.transform = 'translateY(-8px)';
-                        e.target.style.boxShadow = '0 12px 40px rgba(0,0,0,0.15)';
-                        e.target.style.background = colors.primary;
-                        e.target.style.color = 'white';
-                      }}
-                      onMouseLeave={(e) => {
-                        e.target.style.transform = 'translateY(0)';
-                        e.target.style.boxShadow = '0 4px 20px rgba(0,0,0,0.08)';
-                        e.target.style.background = colors.accent;
-                        e.target.style.color = colors.primary;
-                      }}
                     >
-                      {!isAvailable ? "❌ Sold" :
-                       userOffer && getOfferStatus(userOffer) === 'accepted' ? "✅ Accepted" :
-                       userOffer && getOfferStatus(userOffer) === 'rejected' ? "❌ Closed" :
-                       userOffer ? "✏️ Update Offer" : "💰 Make Offer"}
+                      {!isAvailable ? (
+                        <>
+                          <i className="fa-solid fa-ban"></i>
+                          Sold
+                        </>
+                      ) : userOffer && getOfferStatus(userOffer) === 'accepted' ? (
+                        <>
+                          <i className="fa-solid fa-check-circle"></i>
+                          Accepted
+                        </>
+                      ) : userOffer && getOfferStatus(userOffer) === 'rejected' ? (
+                        <>
+                          <i className="fa-solid fa-times-circle"></i>
+                          Closed
+                        </>
+                      ) : userOffer ? (
+                        <>
+                          <i className="fa-solid fa-edit"></i>
+                          Update Offer
+                        </>
+                      ) : (
+                        <>
+                          <i className="fa-solid fa-handshake"></i>
+                          Make Offer
+                        </>
+                      )}
                     </Button>
                   </Col>
 
-                  {/* BUY NOW BUTTON */}
-                  <Col sm={4}>
+                  <Col sm={12}>
                     <Button
                       onClick={handleBuyNow}
                       disabled={!isAvailable || updatingCart}
-                      className="w-100 border-0 d-flex align-items-center justify-content-center gap-2"
+                      className="w-100 border-0 hover-shadow d-flex align-items-center justify-content-center gap-2"
                       style={{ 
-                        background: '#28a745',
+                        background: colors.success,
                         padding: '1rem',
-                        borderRadius: '16px',
+                        borderRadius: '8px',
                         fontWeight: '600',
                         fontSize: '1rem',
                         color: 'white',
-                        transition: 'all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
-                        boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
-                        height: '55px'
-                      }}
-                      onMouseEnter={(e) => {
-                        e.target.style.transform = 'translateY(-8px)';
-                        e.target.style.boxShadow = '0 12px 40px rgba(0,0,0,0.15)';
-                        e.target.style.background = '#218838';
-                      }}
-                      onMouseLeave={(e) => {
-                        e.target.style.transform = 'translateY(0)';
-                        e.target.style.boxShadow = '0 4px 20px rgba(0,0,0,0.08)';
-                        e.target.style.background = '#28a745';
+                        transition: 'all 0.3s ease',
+                        height: '54px'
                       }}
                     >
-                      {updatingCart ? "⏳ Processing..." : "🛍️ Buy Now"}
+                      {updatingCart ? (
+                        <span className="loading-spinner" style={{ width: '20px', height: '20px' }}></span>
+                      ) : (
+                        <>
+                          <i className="fa-solid fa-bolt"></i>
+                          Buy Now
+                        </>
+                      )}
                     </Button>
                   </Col>
                 </Row>
               )}
 
-              {/* Enhanced User Status */}
-              <div style={{ 
-                background: `linear-gradient(135deg, ${colors.primary}15, ${colors.secondary}15)`,
-                padding: '1.25rem',
-                borderRadius: '15px',
-                marginBottom: '2rem',
-                border: `2px solid ${colors.accent}30`,
-                textAlign: 'center'
-              }}>
-                <p style={{ 
-                  color: colors.primary, 
-                  margin: 0,
-                  fontWeight: '600',
-                  fontSize: '1rem'
-                }}>
-                  {user ? `👋 Welcome, ${user.name}! Ready to make this yours?` : "🔒 Please login to use all features"}
-                </p>
-              </div>
-
-              {/* Enhanced Owner Message */}
-              {isOwner && (
-                <div style={{ 
-                  background: `linear-gradient(135deg, ${colors.accent}20, ${colors.primary}10)`,
-                  border: `3px solid ${colors.accent}`,
-                  padding: '1.5rem',
-                  borderRadius: '15px',
-                  marginBottom: '2rem',
-                  textAlign: 'center'
-                }}>
+              {/* User Status */}
+              <Card className="border-0 mb-4 hover-shadow" style={{ background: `linear-gradient(135deg, ${colors.secondary}15, ${colors.primary}15)` }}>
+                <Card.Body className="p-3 text-center">
                   <p style={{ 
                     color: colors.primary, 
                     margin: 0,
-                    fontWeight: '700',
-                    fontSize: '1rem'
+                    fontWeight: '500',
+                    fontSize: '0.9rem'
                   }}>
-                    ⚠️ This is your own listing - Manage it from your profile
+                    {user ? (
+                      <>
+                        <i className="fa-solid fa-user" style={{ marginRight: '0.5rem' }}></i>
+                        Welcome, {user.name}! Ready to make this yours?
+                      </>
+                    ) : (
+                      <>
+                        <i className="fa-solid fa-lock" style={{ marginRight: '0.5rem' }}></i>
+                        Please login to use all features
+                      </>
+                    )}
                   </p>
-                </div>
+                </Card.Body>
+              </Card>
+
+              {/* Owner Message */}
+              {isOwner && (
+                <Card className="border-0 mb-4 hover-shadow" style={{ background: `linear-gradient(135deg, ${colors.accent}25, ${colors.primary}15)`, border: `2px solid ${colors.accent}` }}>
+                  <Card.Body className="p-3 text-center">
+                    <p style={{ 
+                      color: colors.primary, 
+                      margin: 0,
+                      fontWeight: '600',
+                      fontSize: '0.9rem'
+                    }}>
+                      <i className="fa-solid fa-info-circle" style={{ marginRight: '0.5rem' }}></i>
+                      This is your own listing - Manage it from your profile
+                    </p>
+                  </Card.Body>
+                </Card>
               )}
 
-              {/* Enhanced Offer Card */}
+              {/* Offer Card */}
               {showOfferCard && !isOwner && (
-                <Card 
-                  className="border-0 shadow-lg"
-                  style={{ 
-                    background: `linear-gradient(135deg, ${colors.accent}15, ${colors.primary}10)`,
-                    borderRadius: '20px',
-                    marginBottom: '2rem',
-                    border: `3px solid ${colors.accent}`,
-                    overflow: 'hidden'
-                  }}
-                >
-                  <Card.Body className="p-4">
-                    <div className="text-center mb-4">
-                      <h5 style={{ 
+                <Card className="border-0 shadow mb-4 hover-shadow" style={{ border: `2px solid ${colors.accent}` }}>
+                  <Card.Body className="p-3">
+                    <div className="text-center mb-3">
+                      <h6 style={{ 
                         color: colors.primary, 
-                        fontWeight: '700', 
-                        marginBottom: '0.5rem',
-                        fontSize: '1.3rem'
+                        fontWeight: '600', 
+                        margin: 0
                       }}>
                         {userOffer ? 'Update Your Offer' : 'Make Your Offer'}
-                      </h5>
-                      <p style={{ color: colors.primary, fontWeight: '600', fontSize: '1rem' }}>
-                        💰 Bargain for the best price!
-                      </p>
+                      </h6>
                     </div>
                     
                     {userOffer && (
-                      <div style={{ 
-                        background: 'rgba(25, 83, 95, 0.1)',
-                        padding: '1rem',
-                        borderRadius: '15px',
-                        marginBottom: '1.5rem',
-                        textAlign: 'center'
-                      }}>
-                        <p style={{ color: colors.primary, fontWeight: '600', margin: 0, fontSize: '1rem' }}>
-                          Current offer: <span style={{ color: colors.secondary, fontSize: '1.2rem' }}>{formatCurrency(getOfferAmount(userOffer))}</span>
-                        </p>
-                      </div>
+                      <Card className="border-0 mb-3" style={{ background: 'rgba(25, 83, 95, 0.1)' }}>
+                        <Card.Body className="p-2 text-center">
+                          <p style={{ color: colors.primary, fontWeight: '600', margin: 0, fontSize: '0.9rem' }}>
+                            Current offer: <span style={{ color: colors.secondary, fontSize: '1.1rem' }}>{formatCurrency(getOfferAmount(userOffer))}</span>
+                          </p>
+                        </Card.Body>
+                      </Card>
                     )}
                     
-                    <div className="mb-4">
+                    <div className="mb-3">
                       <label style={{ 
                         color: colors.primary, 
                         fontWeight: '600', 
-                        marginBottom: '0.75rem', 
+                        marginBottom: '0.5rem', 
                         display: 'block',
-                        fontSize: '1rem'
+                        fontSize: '0.9rem'
                       }}>
                         Offer Amount
                       </label>
@@ -1015,61 +905,40 @@ const ProductPage = () => {
                         onChange={(e) => setOfferAmount(e.target.value)}
                         style={{
                           width: '100%',
-                          padding: '1rem',
+                          padding: '0.75rem',
                           border: `2px solid ${colors.accent}`,
-                          borderRadius: '12px',
-                          fontSize: '1rem',
-                          fontWeight: '600',
+                          borderRadius: '8px',
+                          fontSize: '0.9rem',
+                          fontWeight: '500',
                           color: colors.primary,
-                          background: 'rgba(255,255,255,0.8)',
-                          transition: 'all 0.3s ease'
-                        }}
-                        onFocus={(e) => {
-                          e.target.style.background = 'white';
-                          e.target.style.boxShadow = `0 0 0 3px ${colors.accent}50`;
-                        }}
-                        onBlur={(e) => {
-                          e.target.style.background = 'rgba(255,255,255,0.8)';
-                          e.target.style.boxShadow = 'none';
+                          background: 'white'
                         }}
                         step="0.01"
                       />
                     </div>
                     
-                    <div style={{ 
-                      background: 'rgba(215, 201, 170, 0.2)',
-                      padding: '1rem',
-                      borderRadius: '12px',
-                      marginBottom: '1.5rem'
-                    }}>
-                      <p style={{ color: colors.primary, fontSize: '0.9rem', margin: 0, fontWeight: '600' }}>
-                        💡 This is bargaining - offer any amount you think is fair! The seller will review your offer.
-                      </p>
-                    </div>
+                    <Card className="border-0 mb-3" style={{ background: 'rgba(215, 201, 170, 0.2)' }}>
+                      <Card.Body className="p-2">
+                        <p style={{ color: colors.primary, fontSize: '0.8rem', margin: 0, fontWeight: '500' }}>
+                          <i className="fa-solid fa-lightbulb" style={{ marginRight: '0.5rem' }}></i>
+                          This is bargaining - offer any amount you think is fair! The seller will review your offer.
+                        </p>
+                      </Card.Body>
+                    </Card>
                     
-                    <div className="d-flex gap-3">
+                    <div className="d-flex gap-2">
                       <Button
                         onClick={() => setShowOfferCard(false)}
+                        className="hover-shadow"
                         style={{
                           flex: 1,
                           background: 'transparent',
                           border: `2px solid ${colors.primary}`,
                           color: colors.primary,
-                          padding: '0.9rem',
-                          borderRadius: '12px',
+                          padding: '0.75rem',
+                          borderRadius: '8px',
                           fontWeight: '600',
-                          transition: 'all 0.3s ease',
                           fontSize: '0.9rem'
-                        }}
-                        onMouseEnter={(e) => {
-                          e.target.style.background = colors.primary;
-                          e.target.style.color = 'white';
-                          e.target.style.transform = 'translateY(-2px)';
-                        }}
-                        onMouseLeave={(e) => {
-                          e.target.style.background = 'transparent';
-                          e.target.style.color = colors.primary;
-                          e.target.style.transform = 'translateY(0)';
                         }}
                       >
                         Cancel
@@ -1077,82 +946,84 @@ const ProductPage = () => {
                       <Button
                         onClick={handlePlaceOffer}
                         disabled={placingOffer || !offerAmount}
+                        className="hover-shadow"
                         style={{
                           flex: 1,
                           background: colors.primary,
                           border: 'none',
                           color: 'white',
-                          padding: '0.9rem',
-                          borderRadius: '12px',
+                          padding: '0.75rem',
+                          borderRadius: '8px',
                           fontWeight: '600',
-                          transition: 'all 0.3s ease',
                           fontSize: '0.9rem'
                         }}
-                        onMouseEnter={(e) => {
-                          if (!placingOffer) {
-                            e.target.style.background = colors.secondary;
-                            e.target.style.transform = 'translateY(-2px)';
-                          }
-                        }}
-                        onMouseLeave={(e) => {
-                          if (!placingOffer) {
-                            e.target.style.background = colors.primary;
-                            e.target.style.transform = 'translateY(0)';
-                          }
-                        }}
                       >
-                        {placingOffer ? "⏳ Submitting..." : (userOffer ? "✏️ Update Offer" : "💰 Submit Offer")}
+                        {placingOffer ? (
+                          <span className="loading-spinner" style={{ width: '16px', height: '16px' }}></span>
+                        ) : userOffer ? (
+                          'Update Offer'
+                        ) : (
+                          'Submit Offer'
+                        )}
                       </Button>
                     </div>
                   </Card.Body>
                 </Card>
               )}
 
-              {/* Enhanced User's Current Offer */}
+              {/* User's Current Offer */}
               {userOffer && !isOwner && !showOfferCard && (
-                <Card 
-                  className="border-0 shadow-lg mb-4"
+                <Card className="border-0 shadow mb-4 hover-shadow" 
                   style={{ 
                     background: getOfferStatus(userOffer) === 'accepted' ? 
-                      'linear-gradient(135deg, #d4edda, #c3e6cb)' :
+                      'rgba(72, 187, 120, 0.1)' :
                       getOfferStatus(userOffer) === 'rejected' ? 
-                      'linear-gradient(135deg, #f8d7da, #f5c6cb)' :
-                      'linear-gradient(135deg, #cce7ff, #b3d9ff)',
-                    borderRadius: '16px',
+                      'rgba(245, 101, 101, 0.1)' :
+                      'rgba(11, 122, 117, 0.1)',
                     border: `2px solid ${
-                      getOfferStatus(userOffer) === 'accepted' ? '#28a745' :
-                      getOfferStatus(userOffer) === 'rejected' ? '#dc3545' : colors.primary
-                    }`,
-                    overflow: 'hidden'
+                      getOfferStatus(userOffer) === 'accepted' ? colors.success :
+                      getOfferStatus(userOffer) === 'rejected' ? colors.error : colors.primary
+                    }`
                   }}
                 >
                   <Card.Body className="p-3">
                     <div className="d-flex justify-content-between align-items-center">
                       <div>
                         <h6 style={{ 
-                          color: getOfferStatus(userOffer) === 'accepted' ? '#155724' :
-                                 getOfferStatus(userOffer) === 'rejected' ? '#721c24' : colors.primary,
-                          fontWeight: '700',
+                          color: getOfferStatus(userOffer) === 'accepted' ? colors.success :
+                                 getOfferStatus(userOffer) === 'rejected' ? colors.error : colors.primary,
+                          fontWeight: '600',
                           margin: 0,
-                          fontSize: '1rem'
+                          fontSize: '0.9rem'
                         }}>
-                          {getOfferStatus(userOffer) === 'accepted' ? '🎉 Offer Accepted!' : 
-                           getOfferStatus(userOffer) === 'rejected' ? '❌ Offer Declined' : 
-                           '💰 Your Current Offer'}
+                          {getOfferStatus(userOffer) === 'accepted' ? (
+                            <>
+                              <i className="fa-solid fa-check-circle" style={{ marginRight: '0.5rem' }}></i>
+                              Offer Accepted!
+                            </>
+                          ) : getOfferStatus(userOffer) === 'rejected' ? (
+                            <>
+                              <i className="fa-solid fa-times-circle" style={{ marginRight: '0.5rem' }}></i>
+                              Offer Declined
+                            </>
+                          ) : (
+                            <>
+                              <i className="fa-solid fa-clock" style={{ marginRight: '0.5rem' }}></i>
+                              Your Current Offer
+                            </>
+                          )}
                         </h6>
                         <p style={{ 
-                          color: getOfferStatus(userOffer) === 'accepted' ? '#155724' :
-                                 getOfferStatus(userOffer) === 'rejected' ? '#721c24' : colors.primary,
-                          fontWeight: '700',
+                          color: colors.dark,
+                          fontWeight: '600',
                           margin: '0.25rem 0 0 0',
-                          fontSize: '1.1rem'
+                          fontSize: '1rem'
                         }}>
                           {formatCurrency(getOfferAmount(userOffer))}
                         </p>
                         <small style={{ 
-                          color: getOfferStatus(userOffer) === 'accepted' ? '#155724' :
-                                 getOfferStatus(userOffer) === 'rejected' ? '#721c24' : colors.primary,
-                          opacity: 0.8,
+                          color: colors.dark,
+                          opacity: 0.7,
                           fontSize: '0.8rem'
                         }}>
                           {getOfferStatus(userOffer) === 'pending' ? 'Waiting for seller response' :
@@ -1163,30 +1034,18 @@ const ProductPage = () => {
                       <Button
                         onClick={handleOfferButtonClick}
                         disabled={getOfferStatus(userOffer) === 'accepted' || getOfferStatus(userOffer) === 'rejected' || !isAvailable}
+                        className="hover-shadow"
                         style={{
                           background: colors.primary,
                           border: 'none',
-                          borderRadius: '12px',
-                          padding: '0.6rem 1.2rem',
+                          borderRadius: '8px',
+                          padding: '0.5rem 1rem',
                           fontSize: '0.8rem',
-                          fontWeight: '600',
-                          transition: 'all 0.3s ease'
-                        }}
-                        onMouseEnter={(e) => {
-                          if (!e.target.disabled) {
-                            e.target.style.background = colors.secondary;
-                            e.target.style.transform = 'scale(1.05)';
-                          }
-                        }}
-                        onMouseLeave={(e) => {
-                          if (!e.target.disabled) {
-                            e.target.style.background = colors.primary;
-                            e.target.style.transform = 'scale(1)';
-                          }
+                          fontWeight: '600'
                         }}
                       >
-                        {getOfferStatus(userOffer) === 'accepted' ? '✅ Accepted' :
-                         getOfferStatus(userOffer) === 'rejected' ? '❌ Closed' : 'Update'}
+                        {getOfferStatus(userOffer) === 'accepted' ? 'Accepted' :
+                         getOfferStatus(userOffer) === 'rejected' ? 'Closed' : 'Update'}
                       </Button>
                     </div>
                   </Card.Body>
@@ -1196,167 +1055,160 @@ const ProductPage = () => {
           </Col>
         </Row>
 
-        {/* Enhanced Additional Information Accordion - Matching FAQ Style */}
-        <Row className="mt-5">
+        {/* Enhanced Product Details Accordion */}
+        <Row className="mt-4">
           <Col lg={10} className="mx-auto">
-            <h2 className="text-center mb-4" style={{ 
-              color: colors.primary, 
-              fontWeight: '700',
-              fontSize: '2.5rem',
-              position: 'relative'
-            }}>
-              Product Details
-              <div style={{ 
-                position: 'absolute', 
-                bottom: '-10px', 
-                left: '50%', 
-                transform: 'translateX(-50%)', 
-                width: '80px', 
-                height: '4px', 
-                background: 'linear-gradient(90deg, #0B7A75, #D7C9AA)',
-                borderRadius: '2px'
-              }}></div>
-            </h2>
+            <Card className="border-0 shadow hover-shadow">
+              <Card.Body className="p-4">
+                <h3 className="text-center mb-4" style={{ 
+                  color: colors.primary, 
+                  fontWeight: '700'
+                }}>
+                  Product Details
+                </h3>
 
-            <Accordion defaultActiveKey="0" style={{ marginBottom: '3rem' }}>
-              {/* Description */}
-              <Accordion.Item eventKey="0">
-                <Accordion.Header>
-                  Product Description
-                </Accordion.Header>
-                <Accordion.Body>
-                  <p style={{ lineHeight: '1.6', margin: 0, fontSize: '1rem' }}>
-                    {product.description || "No description provided."}
-                  </p>
-                  {renderProductDetails()}
-                </Accordion.Body>
-              </Accordion.Item>
+                <Accordion defaultActiveKey="0">
+                  {/* Description */}
+                  <Accordion.Item eventKey="0">
+                    <Accordion.Header style={{ fontWeight: '600', color: colors.primary }}>
+                      <i className="fa-solid fa-file-lines" style={{ marginRight: '0.5rem' }}></i>
+                      Product Description
+                    </Accordion.Header>
+                    <Accordion.Body style={{ background: '#d7c9aa37' }}>
+                      <p style={{ lineHeight: '1.6', margin: 0, color: colors.dark }}>
+                        {product.description || "No description provided."}
+                      </p>
+                      {renderProductDetails()}
+                    </Accordion.Body>
+                  </Accordion.Item>
 
-              {/* Owner Information */}
-              <Accordion.Item eventKey="1">
-                <Accordion.Header>
-                  Seller Information
-                </Accordion.Header>
-                <Accordion.Body>
-                  <Row>
-                    <Col md={6}>
-                      <div style={{ marginBottom: '1rem' }}>
-                        <strong style={{ color: colors.primary }}>Name:</strong>
-                        <div style={{ color: colors.dark, fontWeight: '500' }}>{sellerInfo.name}</div>
-                      </div>
-                      <div style={{ marginBottom: '1rem' }}>
-                        <strong style={{ color: colors.primary }}>Location:</strong>
-                        <div style={{ color: colors.dark, fontWeight: '500' }}>{sellerInfo.location}</div>
-                      </div>
-                    </Col>
-                    <Col md={6}>
-                      <div style={{ marginBottom: '1rem' }}>
-                        <strong style={{ color: colors.primary }}>Rating:</strong>
-                        <div style={{ color: colors.dark, fontWeight: '500' }}>⭐ {sellerInfo.rating}</div>
-                      </div>
-                      <div style={{ marginBottom: '1rem' }}>
-                        <strong style={{ color: colors.primary }}>Completed Sales:</strong>
-                        <div style={{ color: colors.dark, fontWeight: '500' }}>{sellerInfo.sales}</div>
-                      </div>
-                    </Col>
-                  </Row>
-                </Accordion.Body>
-              </Accordion.Item>
+                  {/* Owner Information */}
+                  <Accordion.Item eventKey="1">
+                    <Accordion.Header style={{ fontWeight: '600', color: colors.primary }}>
+                      <i className="fa-solid fa-user" style={{ marginRight: '0.5rem' }}></i>
+                      Seller Information
+                    </Accordion.Header>
+                    <Accordion.Body style={{ background: '#d7c9aa37' }}>
+                      <Row>
+                        <Col md={6}>
+                          <div style={{ marginBottom: '1rem' }}>
+                            <strong style={{ color: colors.primary }}>Name:</strong>
+                            <div style={{ color: colors.dark, fontWeight: '500' }}>{sellerInfo.name}</div>
+                          </div>
+                          <div style={{ marginBottom: '1rem' }}>
+                            <strong style={{ color: colors.primary }}>Location:</strong>
+                            <div style={{ color: colors.dark, fontWeight: '500' }}>{sellerInfo.location}</div>
+                          </div>
+                        </Col>
+                        <Col md={6}>
+                          <div style={{ marginBottom: '1rem' }}>
+                            <strong style={{ color: colors.primary }}>Rating:</strong>
+                            <div style={{ color: colors.dark, fontWeight: '500' }}>
+                              <i className="fa-solid fa-star" style={{ color: colors.accent, marginRight: '0.25rem' }}></i>
+                              {sellerInfo.rating}
+                            </div>
+                          </div>
+                          <div style={{ marginBottom: '1rem' }}>
+                            <strong style={{ color: colors.primary }}>Completed Sales:</strong>
+                            <div style={{ color: colors.dark, fontWeight: '500' }}>{sellerInfo.sales}</div>
+                          </div>
+                        </Col>
+                      </Row>
+                    </Accordion.Body>
+                  </Accordion.Item>
 
-              {/* Offers (for owner) */}
-              {isOwner && currentOffers.length > 0 && (
-                <Accordion.Item eventKey="2">
-                  <Accordion.Header>
-                    Received Offers ({currentOffers.length})
-                  </Accordion.Header>
-                  <Accordion.Body>
-                    <div style={{ maxHeight: '300px', overflowY: 'auto' }}>
-                      {currentOffers
-                        .sort((a, b) => getOfferAmount(b) - getOfferAmount(a))
-                        .map((offer, index) => (
-                          <Card 
-                            key={offer.bidId || `offer-${index}`}
-                            className="mb-3 border-0 shadow-sm"
-                            style={{ 
-                              background: 'white',
-                              borderRadius: '10px'
-                            }}
-                          >
-                            <Card.Body className="p-3">
-                              <div className="d-flex justify-content-between align-items-center">
-                                <div>
-                                  <h6 style={{ color: colors.primary, margin: 0, fontWeight: '600' }}>
-                                    {offer.bidderName || "Unknown User"}
-                                  </h6>
-                                  <small style={{ color: colors.dark }}>
-                                    {formatDate(offer.date)}
-                                  </small>
-                                </div>
-                                <div className="text-end">
-                                  <div style={{ 
-                                    color: colors.secondary,
-                                    fontSize: '1.1rem',
-                                    fontWeight: '700'
-                                  }}>
-                                    {formatCurrency(getOfferAmount(offer))}
+                  {/* Offers (for owner) */}
+                  {isOwner && currentOffers.length > 0 && (
+                    <Accordion.Item eventKey="2">
+                      <Accordion.Header style={{ fontWeight: '600', color: colors.primary }}>
+                        <i className="fa-solid fa-hand-holding-dollar" style={{ marginRight: '0.5rem' }}></i>
+                        Received Offers ({currentOffers.length})
+                      </Accordion.Header>
+                      <Accordion.Body style={{ background: '#d7c9aa37' }}>
+                        <div style={{ maxHeight: '300px', overflowY: 'auto' }}>
+                          {currentOffers
+                            .sort((a, b) => getOfferAmount(b) - getOfferAmount(a))
+                            .map((offer, index) => (
+                              <Card 
+                                key={offer.bidId || `offer-${index}`}
+                                className="mb-2 border-0 hover-shadow"
+                                style={{ 
+                                  background: 'white'
+                                }}
+                              >
+                                <Card.Body className="p-2">
+                                  <div className="d-flex justify-content-between align-items-center">
+                                    <div>
+                                      <h6 style={{ color: colors.primary, margin: 0, fontSize: '0.9rem', fontWeight: '600' }}>
+                                        <i className="fa-solid fa-user" style={{ marginRight: '0.5rem' }}></i>
+                                        {offer.bidderName || "Unknown User"}
+                                      </h6>
+                                      <small style={{ color: colors.dark, fontSize: '0.8rem' }}>
+                                        <i className="fa-solid fa-calendar" style={{ marginRight: '0.25rem' }}></i>
+                                        {formatDate(offer.date)}
+                                      </small>
+                                    </div>
+                                    <div className="text-end">
+                                      <div style={{ 
+                                        color: colors.secondary,
+                                        fontSize: '1rem',
+                                        fontWeight: '700'
+                                      }}>
+                                        {formatCurrency(getOfferAmount(offer))}
+                                      </div>
+                                      <small style={{ 
+                                        color: getOfferStatus(offer) === 'accepted' ? colors.success :
+                                               getOfferStatus(offer) === 'rejected' ? colors.error : colors.accent,
+                                        fontWeight: '600',
+                                        fontSize: '0.8rem'
+                                      }}>
+                                        {getOfferStatus(offer)}
+                                      </small>
+                                    </div>
                                   </div>
-                                  <small style={{ 
-                                    color: getOfferStatus(offer) === 'accepted' ? '#28a745' :
-                                           getOfferStatus(offer) === 'rejected' ? '#dc3545' : '#ffc107',
-                                    fontWeight: '600'
-                                  }}>
-                                    {getOfferStatus(offer)}
-                                  </small>
-                                </div>
-                              </div>
-                            </Card.Body>
-                          </Card>
-                        ))}
-                    </div>
-                  </Accordion.Body>
-                </Accordion.Item>
-              )}
-            </Accordion>
+                                </Card.Body>
+                              </Card>
+                            ))}
+                        </div>
+                      </Accordion.Body>
+                    </Accordion.Item>
+                  )}
+                </Accordion>
+              </Card.Body>
+            </Card>
           </Col>
         </Row>
       </Container>
 
-      {/* Enhanced Footer Section */}
+      {/* Modern Footer */}
       <div style={{ 
-        background: `linear-gradient(135deg, ${colors.primary} 0%, ${colors.secondary} 100%)`,
+        background: colors.primary,
         padding: '3rem 0',
         marginTop: '4rem',
         color: colors.light,
         textAlign: 'center'
       }}>
         <Container>
-          <h5 style={{ fontWeight: '700', marginBottom: '1rem', fontSize: '1.5rem' }}>
+          <h5 style={{ fontWeight: '700', marginBottom: '1rem' }}>
             Ready to make this item yours?
           </h5>
-          <p style={{ marginBottom: '2rem', opacity: 0.9, fontSize: '1.1rem' }}>
+          <p style={{ marginBottom: '2rem', opacity: 0.9 }}>
             Join thousands of happy customers who found their perfect match on Thriftify!
           </p>
           <Button
             onClick={() => navigate('/categories')}
+            className="hover-shadow"
             style={{
               background: colors.accent,
               border: 'none',
               color: colors.primary,
-              padding: '1rem 2.5rem',
-              borderRadius: '25px',
-              fontWeight: '700',
-              fontSize: '1.1rem',
+              padding: '0.875rem 2rem',
+              borderRadius: '8px',
+              fontWeight: '600',
               transition: 'all 0.3s ease'
             }}
-            onMouseEnter={(e) => {
-              e.target.style.transform = 'translateY(-3px)';
-              e.target.style.boxShadow = '0 10px 25px rgba(0,0,0,0.2)';
-            }}
-            onMouseLeave={(e) => {
-              e.target.style.transform = 'translateY(0)';
-              e.target.style.boxShadow = 'none';
-            }}
           >
+            <i className="fa-solid fa-bag-shopping" style={{ marginRight: '0.5rem' }}></i>
             Continue Shopping
           </Button>
         </Container>

@@ -20,6 +20,24 @@ const DashboardPage = () => {
   const [profileError, setProfileError] = useState("");
   const [imageUploading, setImageUploading] = useState(false);
 
+  // ✅ FIXED: Enhanced Image URL helper function
+  const getProfileImageUrl = (imagePath) => {
+    if (!imagePath) return "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=80&h=80&fit=crop&crop=face";
+    
+    // If it's already a full URL, use it directly
+    if (imagePath.startsWith('http')) {
+      return imagePath;
+    }
+    
+    // If it's a relative path, construct the full URL
+    if (imagePath.startsWith('/uploads/')) {
+      return `http://localhost:3000${imagePath}`;
+    }
+    
+    // Fallback for any other cases
+    return imagePath;
+  };
+
   useEffect(() => {
     const fetchDashboard = async () => {
       try {
@@ -39,6 +57,9 @@ const DashboardPage = () => {
           return;
         }
 
+        console.log("🔄 Fetching dashboard for user:", userId, "Type:", typeof userId);
+        
+        // Directly fetch dashboard data
         const res = await api.get(`/dashboard/${userId}`);
         setDashboardData(res.data);
         
@@ -69,7 +90,7 @@ const DashboardPage = () => {
     fetchDashboard();
   }, [navigate]);
 
-  // ✅ ADDED: Handle profile image upload
+  // Handle profile image upload
   const handleImageUpload = async (event) => {
     const file = event.target.files[0];
     if (!file) return;
@@ -129,8 +150,12 @@ const DashboardPage = () => {
     }
   };
 
-  // ✅ ADDED: Remove profile image
+  // Remove profile image
   const handleRemoveImage = async () => {
+    if (!window.confirm("Are you sure you want to remove your profile image?")) {
+      return;
+    }
+
     try {
       setImageUploading(true);
       
@@ -264,24 +289,47 @@ const DashboardPage = () => {
     }
   };
 
-  // ✅ UPDATED: Product deletion that removes from database
+  // 🔥 FIXED: Enhanced Product deletion with proper cleanup
   const handleDeleteProduct = async (productId) => {
-    if (window.confirm("Are you sure you want to delete this listing? This action cannot be undone.")) {
+    if (window.confirm("Are you sure you want to delete this listing? This will also remove all associated bids, notifications, and other related data. This action cannot be undone.")) {
       try {
-        await api.delete(`/dashboard/product/${productId}`);
-        setDashboardData(prev => ({
-          ...prev,
-          products: prev.products.filter(product => product._id !== productId),
-          stats: {
-            ...prev.stats,
-            totalListings: prev.stats.totalListings - 1,
-            activeListings: prev.stats.activeListings - (prev.products.find(p => p._id === productId)?.available ? 1 : 0)
+        const response = await api.delete(`/dashboard/product/${productId}`);
+        
+        if (response.data.success) {
+          setDashboardData(prev => ({
+            ...prev,
+            products: prev.products.filter(product => product._id !== productId),
+            stats: {
+              ...prev.stats,
+              totalListings: prev.stats.totalListings - 1,
+              activeListings: prev.stats.activeListings - (prev.products.find(p => p._id === productId)?.available ? 1 : 0)
+            }
+          }));
+          
+          // Show success message with cleanup details
+          const cleanupInfo = response.data.deletedProduct?.relatedDataDeleted;
+          let successMessage = "✅ Listing deleted successfully!";
+          
+          if (cleanupInfo) {
+            const details = [];
+            if (cleanupInfo.bids > 0) details.push(`${cleanupInfo.bids} bids`);
+            if (cleanupInfo.notifications > 0) details.push(`${cleanupInfo.notifications} notifications`);
+            if (cleanupInfo.wishlistEntries > 0) details.push(`${cleanupInfo.wishlistEntries} wishlist entries`);
+            if (cleanupInfo.cartEntries > 0) details.push(`${cleanupInfo.cartEntries} cart entries`);
+            if (cleanupInfo.reviews > 0) details.push(`${cleanupInfo.reviews} reviews`);
+            
+            if (details.length > 0) {
+              successMessage += ` Also cleaned up: ${details.join(', ')}.`;
+            }
           }
-        }));
-        alert("✅ Listing deleted successfully!");
+          
+          alert(successMessage);
+        } else {
+          alert("❌ Failed to delete listing: " + (response.data.message || "Unknown error"));
+        }
       } catch (err) {
         console.error("Error deleting product:", err);
-        alert("❌ Failed to delete listing.");
+        alert("❌ Failed to delete listing: " + (err.response?.data?.message || err.message || "Network error"));
       }
     }
   };
@@ -438,10 +486,17 @@ const DashboardPage = () => {
             <div className="space-y-6">
               <div className="flex items-center space-x-4">
                 <div className="relative">
+                  {/* ✅ FIXED: Image display with enhanced URL handling */}
                   <img
-                    src={profileForm.profileImage || user?.profileImage || "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=80&h=80&fit=crop&crop=face"}
+                    src={getProfileImageUrl(
+                      profileForm.profileImage || user?.profileImage
+                    )}
                     alt="Profile"
                     className="w-16 h-16 rounded-full object-cover border-2 border-white shadow-md"
+                    onError={(e) => {
+                      // Fallback if image fails to load
+                      e.target.src = "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=80&h=80&fit=crop&crop=face";
+                    }}
                   />
                   <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-400 rounded-full border-2 border-white"></div>
                   
@@ -605,7 +660,6 @@ const DashboardPage = () => {
           </div>
         </div>
 
-        {/* Rest of the code remains the same */}
         {/* Navigation Tabs for other sections */}
         <div className="bg-white rounded-lg shadow-sm border mb-6">
           <nav className="flex space-x-8 px-6 overflow-x-auto">
@@ -725,7 +779,7 @@ const DashboardPage = () => {
   );
 };
 
-// Helper Components (remain the same)
+// Helper Components
 const InfoField = ({ label, value }) => (
   <div className="flex justify-between items-center py-2 border-b border-gray-100 last:border-b-0">
     <span className="text-sm text-gray-600 font-medium">{label}</span>

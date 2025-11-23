@@ -7,32 +7,64 @@ import Row from 'react-bootstrap/Row';
 import Container from 'react-bootstrap/Container';
 import colors from "../../theme";
 
-// Categories Component (for home page section)
+// Categories Component (for categories page)
 function Categories() {
     const [categories, setCategories] = useState([]);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        // Mock data - replace with actual API call
-        const mockCategories = [
-            { _id: 1, name: 'Clothing', itemsCount: 45, image: '' },
-            { _id: 2, name: 'Electronics', itemsCount: 32, image: '' },
-            { _id: 3, name: 'Books', itemsCount: 28, image: '' },
-            { _id: 4, name: 'Home & Garden', itemsCount: 51, image: '' },
-            { _id: 5, name: 'Sports', itemsCount: 23, image: '' },
-            { _id: 6, name: 'Toys', itemsCount: 19, image: '' }
-        ];
-        
-        setCategories(mockCategories);
-        setLoading(false);
+        const fetchCategories = async () => {
+            try {
+                console.log("🔄 Fetching categories from API...");
+                const res = await axios.get('http://localhost:3000/category');
+                console.log("✅ Categories API response:", res.data);
+                
+                if (res.data && res.data.length > 0) {
+                    setCategories(res.data);
+                } else {
+                    console.log("📭 No categories found in API response, using fallback data");
+                    // Use the same fallback data as your homepage
+                    setCategories([
+                        { _id: 1, name: 'Clothing', itemsCount: 24, image: 'https://images.unsplash.com/photo-1441984904996-e0b6ba687e04?w=300&h=180&fit=crop' },
+                        { _id: 2, name: 'Electronics', itemsCount: 18, image: 'https://images.unsplash.com/photo-1498049794561-7780e7231661?w=300&h=180&fit=crop' },
+                        { _id: 3, name: 'Books', itemsCount: 32, image: 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=300&h=180&fit=crop' },
+                        { _id: 4, name: 'Home & Garden', itemsCount: 15, image: 'https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=300&h=180&fit=crop' },
+                        { _id: 5, name: 'Sports', itemsCount: 12, image: 'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=300&h=180&fit=crop' },
+                        { _id: 6, name: 'Toys', itemsCount: 8, image: 'https://images.unsplash.com/photo-1555252333-9f8e92e65df9?w=300&h=180&fit=crop' },
+                        { _id: 7, name: 'Jewelry', itemsCount: 21, image: 'https://images.unsplash.com/photo-1515562141207-7a88fb7ce338?w=300&h=180&fit=crop' },
+                        { _id: 8, name: 'Automotive', itemsCount: 6, image: 'https://images.unsplash.com/photo-1549317661-bd32c8ce0db2?w=300&h=180&fit=crop' }
+                    ]);
+                }
+            } catch (error) {
+                console.error("❌ Categories fetch error:", error);
+                // Fallback data
+                setCategories([
+                    { _id: 1, name: 'Clothing', itemsCount: 24, image: 'https://images.unsplash.com/photo-1441984904996-e0b6ba687e04?w=300&h=180&fit=crop' },
+                    { _id: 2, name: 'Electronics', itemsCount: 18, image: 'https://images.unsplash.com/photo-1498049794561-7780e7231661?w=300&h=180&fit=crop' },
+                    { _id: 3, name: 'Books', itemsCount: 32, image: 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=300&h=180&fit=crop' },
+                    { _id: 4, name: 'Home & Garden', itemsCount: 15, image: 'https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=300&h=180&fit=crop' },
+                    { _id: 5, name: 'Sports', itemsCount: 12, image: 'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=300&h=180&fit=crop' },
+                    { _id: 6, name: 'Toys', itemsCount: 8, image: 'https://images.unsplash.com/photo-1555252333-9f8e92e65df9?w=300&h=180&fit=crop' },
+                    { _id: 7, name: 'Jewelry', itemsCount: 21, image: 'https://images.unsplash.com/photo-1515562141207-7a88fb7ce338?w=300&h=180&fit=crop' },
+                    { _id: 8, name: 'Automotive', itemsCount: 6, image: 'https://images.unsplash.com/photo-1549317661-bd32c8ce0db2?w=300&h=180&fit=crop' }
+                ]);
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchCategories();
     }, []);
 
     if (loading) {
         return (
             <div className="py-5" style={{ background: 'linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%)' }}>
                 <Container>
+                    <h2 className="text-center mb-4" style={{ color: colors.badge, fontWeight: '700', fontSize: '2.5rem' }}>
+                        Browse Categories
+                    </h2>
                     <div className="text-center py-5">
-                        <p className="text-muted fs-5">Loading categories...</p>
+                        <div className="spinner-border text-primary" style={{ width: '3rem', height: '3rem' }}></div>
+                        <p className="mt-3 text-muted fs-5">Loading categories...</p>
                     </div>
                 </Container>
             </div>
@@ -66,7 +98,7 @@ function Categories() {
                 
                 <Row className="g-4 justify-content-center">
                     {categories.map((category, index) => (
-                        <Col key={category._id} xs={6} sm={4} md={3} lg={2} className="d-flex justify-content-center">
+                        <Col key={category._id || index} xs={6} sm={4} md={3} lg={2} className="d-flex justify-content-center">
                             <CategoryCard category={category} index={index} />
                         </Col>
                     ))}
@@ -104,17 +136,25 @@ function Categories() {
     );
 }
 
-// Enhanced Category Card Component
+// Enhanced Category Card Component with BOTH Images and Animated Icons
 function CategoryCard({ category, index }) {
+    // Vibrant gradient colors for the animated bubbles
     const gradients = [
         'linear-gradient(135deg, #FF6B6B 0%, #FFE66D 100%)',
         'linear-gradient(135deg, #48DBFB 0%, #6F86FF 100%)',
         'linear-gradient(135deg, #FF9A8B 0%, #FF6A88 55%, #FF99AC 100%)',
         'linear-gradient(135deg, #42E695 0%, #3BB2B8 100%)',
         'linear-gradient(135deg, #FFD26F 0%, #FF7B54 100%)',
-        'linear-gradient(135deg, #A78BFA 0%, #F87171 100%)'
+        'linear-gradient(135deg, #A78BFA 0%, #F87171 100%)',
+        'linear-gradient(135deg, #60A5FA 0%, #34D399 100%)',
+        'linear-gradient(135deg, #FBBF24 0%, #F59E0B 100%)',
+        'linear-gradient(135deg, #C084FC 0%, #F472B6 100%)',
+        'linear-gradient(135deg, #2DD4BF 0%, #06B6D4 100%)',
+        'linear-gradient(135deg, #FB7185 0%, #F43F5E 100%)',
+        'linear-gradient(135deg, #8B5CF6 0%, #6366F1 100%)'
     ];
 
+    // Colorful icons based on category name
     const getCategoryIcon = (categoryName) => {
         const icons = {
             'clothing': 'fa-shirt',
@@ -130,7 +170,18 @@ function CategoryCard({ category, index }) {
             'shoes': 'fa-shoe-prints',
             'bags': 'fa-bag-shopping',
             'garden': 'fa-seedling',
-            'kitchen': 'fa-utensils'
+            'kitchen': 'fa-utensils',
+            'art': 'fa-palette',
+            'music': 'fa-music',
+            'pet': 'fa-paw',
+            'baby': 'fa-baby',
+            'tech': 'fa-microchip',
+            'phone': 'fa-mobile',
+            'tools': 'fa-tools',
+            'health': 'fa-heart-pulse',
+            'food': 'fa-utensils',
+            'travel': 'fa-suitcase-rolling',
+            'office': 'fa-briefcase'
         };
 
         const lowerName = categoryName.toLowerCase();
@@ -204,6 +255,17 @@ function CategoryCard({ category, index }) {
                 animation: 'float 8s infinite ease-in-out 1s',
                 zIndex: 2
             }}></div>
+            <div style={{
+                position: 'absolute',
+                top: '60%',
+                left: '70%',
+                width: '15px',
+                height: '15px',
+                borderRadius: '50%',
+                background: 'rgba(255,255,255,0.2)',
+                animation: 'float 7s infinite ease-in-out 2s',
+                zIndex: 2
+            }}></div>
 
             {/* Main Content */}
             <div className="position-relative z-3 d-flex flex-column h-100">
@@ -216,37 +278,143 @@ function CategoryCard({ category, index }) {
                     justifyContent: 'center',
                     overflow: 'hidden'
                 }}>
-                    {/* Animated Icon Bubble */}
+                    {/* Database Image Background */}
+                    {hasImage && (
+                        <img
+                            src={category.image}
+                            alt={category.name}
+                            style={{
+                                width: '100%',
+                                height: '100%',
+                                objectFit: 'cover',
+                                transition: 'transform 0.5s ease'
+                            }}
+                            onError={(e) => {
+                                e.target.style.display = 'none';
+                                const fallback = e.target.nextElementSibling;
+                                if (fallback) fallback.style.display = 'flex';
+                            }}
+                            onMouseEnter={(e) => {
+                                e.target.style.transform = 'scale(1.15)';
+                            }}
+                            onMouseLeave={(e) => {
+                                e.target.style.transform = 'scale(1)';
+                            }}
+                        />
+                    )}
+
+                    {/* Animated Icon Bubble (Always Visible) */}
                     <div style={{
                         position: 'absolute',
                         width: '100px',
                         height: '100px',
                         borderRadius: '50%',
-                        background: gradient,
+                        background: hasImage ? 'rgba(255,255,255,0.95)' : gradient,
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        boxShadow: '0 15px 35px rgba(0, 0, 0, 0.25)',
+                        boxShadow: hasImage 
+                            ? '0 15px 35px rgba(0, 0, 0, 0.2)' 
+                            : '0 15px 35px rgba(0, 0, 0, 0.25)',
                         transition: 'all 0.4s ease',
+                        border: hasImage ? `3px solid ${gradient}` : 'none',
                         animation: 'pulse 3s infinite ease-in-out'
                     }}
                     onMouseEnter={(e) => {
                         e.currentTarget.style.transform = 'scale(1.15) rotate(8deg)';
-                        e.currentTarget.style.background = 'white';
-                        e.currentTarget.style.color = colors.bg;
+                        e.currentTarget.style.background = hasImage ? gradient : 'white';
+                        e.currentTarget.style.color = hasImage ? 'white' : colors.bg;
                     }}
                     onMouseLeave={(e) => {
                         e.currentTarget.style.transform = 'scale(1) rotate(0deg)';
-                        e.currentTarget.style.background = gradient;
-                        e.currentTarget.style.color = 'white';
+                        e.currentTarget.style.background = hasImage ? 'rgba(255,255,255,0.95)' : gradient;
+                        e.currentTarget.style.color = hasImage ? colors.bg : 'white';
                     }}
                     >
                         <i className={`fa-solid ${categoryIcon}`} style={{ 
                             fontSize: '2.5rem',
                             transition: 'all 0.3s ease',
-                            color: 'white'
+                            color: hasImage ? gradient : 'white'
                         }}></i>
                     </div>
+
+                    {/* Floating Particles Around the Bubble */}
+                    <div style={{
+                        position: 'absolute',
+                        top: '30%',
+                        right: '25%',
+                        width: '12px',
+                        height: '12px',
+                        borderRadius: '50%',
+                        background: gradient,
+                        opacity: 0.7,
+                        animation: 'float 4s infinite ease-in-out'
+                    }}></div>
+                    <div style={{
+                        position: 'absolute',
+                        bottom: '35%',
+                        left: '25%',
+                        width: '8px',
+                        height: '8px',
+                        borderRadius: '50%',
+                        background: gradient,
+                        opacity: 0.5,
+                        animation: 'float 5s infinite ease-in-out 0.5s'
+                    }}></div>
+                    <div style={{
+                        position: 'absolute',
+                        top: '45%',
+                        right: '15%',
+                        width: '6px',
+                        height: '6px',
+                        borderRadius: '50%',
+                        background: gradient,
+                        opacity: 0.6,
+                        animation: 'float 3.5s infinite ease-in-out 1s'
+                    }}></div>
+
+                    {/* Image Fallback (Only shows if image fails to load) */}
+                    {hasImage && (
+                        <div style={{
+                            position: 'absolute',
+                            top: 0,
+                            left: 0,
+                            right: 0,
+                            bottom: 0,
+                            display: 'none',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            background: gradient,
+                            color: 'white'
+                        }}
+                        className="image-fallback"
+                        >
+                            <div style={{
+                                width: '80px',
+                                height: '80px',
+                                borderRadius: '50%',
+                                background: 'rgba(255,255,255,0.2)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
+                            }}>
+                                <i className={`fa-solid ${categoryIcon}`} style={{ fontSize: '2rem' }}></i>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Dark Overlay for Images for Better Contrast */}
+                    {hasImage && (
+                        <div style={{
+                            position: 'absolute',
+                            top: 0,
+                            left: 0,
+                            right: 0,
+                            bottom: 0,
+                            background: 'linear-gradient(to bottom, rgba(0,0,0,0.2), rgba(0,0,0,0.4))',
+                            opacity: 0.4
+                        }}></div>
+                    )}
                 </div>
                 
                 {/* Text Content */}
@@ -344,11 +512,13 @@ function CategoryPage() {
     useEffect(() => {
         const fetchCategoryData = async () => {
             try {
+                console.log(`🔄 Fetching products for category: ${categoryName}`);
                 const res = await axios.get(`http://localhost:3000/category/${categoryName}`);
+                console.log("✅ Category products response:", res.data);
                 setData(res.data);
                 setFiltered(res.data.results || []);
             } catch (error) {
-                console.error("Category fetch error:", error);
+                console.error("❌ Category fetch error:", error);
             } finally {
                 setLoading(false);
             }
@@ -365,15 +535,15 @@ function CategoryPage() {
         // filter by condition
         if (conditionFilter !== "all") {
             updated = updated.filter(
-                (p) => p.condition.toLowerCase() === conditionFilter.toLowerCase()
+                (p) => p.condition && p.condition.toLowerCase() === conditionFilter.toLowerCase()
             );
         }
 
         // sort options
         if (sortOption === "lowToHigh") {
-            updated.sort((a, b) => a.price - b.price);
+            updated.sort((a, b) => (a.price || 0) - (b.price || 0));
         } else if (sortOption === "highToLow") {
-            updated.sort((a, b) => b.price - a.price);
+            updated.sort((a, b) => (b.price || 0) - (a.price || 0));
         } else if (sortOption === "featured") {
             updated.sort((a, b) => (b.discount || 0) - (a.discount || 0));
         }
@@ -433,7 +603,7 @@ function CategoryPage() {
                         position: 'relative',
                         display: 'inline-block'
                     }}>
-                        {data.category.charAt(0).toUpperCase() + data.category.slice(1)}
+                        {data.category ? data.category.charAt(0).toUpperCase() + data.category.slice(1) : categoryName}
                         <div style={{ 
                             position: 'absolute', 
                             bottom: '-10px', 
@@ -446,7 +616,7 @@ function CategoryPage() {
                         }}></div>
                     </h1>
                     <p className="text-muted fs-5">
-                        Discover amazing {data.category.toLowerCase()} products
+                        Discover amazing {data.category ? data.category.toLowerCase() : categoryName} products
                     </p>
                 </div>
 
@@ -538,7 +708,7 @@ function CategoryPage() {
                 {filtered.length > 0 ? (
                     <Row className="g-4">
                         {filtered.map((item, index) => (
-                            <Col key={item._id} xs={12} sm={6} md={4} lg={3}>
+                            <Col key={item._id || index} xs={12} sm={6} md={4} lg={3}>
                                 <ProductCard item={item} index={index} />
                             </Col>
                         ))}
@@ -609,9 +779,11 @@ function ProductCard({ item, index }) {
             }}
             onMouseEnter={(e) => {
                 e.currentTarget.style.boxShadow = '0 20px 50px rgba(0, 0, 0, 0.15)';
+                e.currentTarget.style.transform = 'translateY(-10px)';
             }}
             onMouseLeave={(e) => {
                 e.currentTarget.style.boxShadow = '0 12px 35px rgba(0, 0, 0, 0.1)';
+                e.currentTarget.style.transform = 'translateY(0)';
             }}
         >
             {/* Product Image */}
@@ -621,7 +793,7 @@ function ProductCard({ item, index }) {
                 overflow: 'hidden' 
             }}>
                 <img
-                    src={item.images?.[0] || "/placeholder.jpg"}
+                    src={item.images?.[0] || item.image || "/placeholder.jpg"}
                     alt={item.name}
                     style={{
                         width: '100%',
@@ -668,7 +840,7 @@ function ProductCard({ item, index }) {
                     fontWeight: '600',
                     backdropFilter: 'blur(10px)'
                 }}>
-                    {item.condition}
+                    {item.condition || 'Good'}
                 </div>
             </div>
 
@@ -698,7 +870,7 @@ function ProductCard({ item, index }) {
                         }}>
                             ${item.price}
                         </div>
-                        {item.originalPrice && (
+                        {item.originalPrice && item.originalPrice > item.price && (
                             <div style={{ 
                                 color: '#6c757d', 
                                 textDecoration: 'line-through',
