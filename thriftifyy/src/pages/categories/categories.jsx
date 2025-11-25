@@ -5,11 +5,20 @@ import Card from 'react-bootstrap/Card';
 import Col from 'react-bootstrap/Col';
 import Row from 'react-bootstrap/Row';
 import Container from 'react-bootstrap/Container';
-import colors from "../../theme";
+
+// Colors matching the second UI theme
+const colors = {
+  bg: "#19535F",
+  accent: "#0B7A75",
+  highlight: "#D7C9AA",
+  badge: "#7B2D26",
+  lightBg: "#F0F3F5"
+};
 
 // Categories Component (for categories page)
 function Categories() {
     const [categories, setCategories] = useState([]);
+    const [searchTerm, setSearchTerm] = useState('');
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -57,13 +66,13 @@ function Categories() {
 
     if (loading) {
         return (
-            <div className="py-5" style={{ background: 'linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%)' }}>
+            <div className="py-5" style={{ background: 'linear-gradient(135deg, #f9fafb 0%, #f3f4f6 100%)' }}>
                 <Container>
-                    <h2 className="text-center mb-4" style={{ color: colors.badge, fontWeight: '700', fontSize: '2.5rem' }}>
+                    <h2 className="text-center mb-4" style={{ color: colors.bg, fontWeight: '700', fontSize: '2.5rem' }}>
                         Browse Categories
                     </h2>
                     <div className="text-center py-5">
-                        <div className="spinner-border text-primary" style={{ width: '3rem', height: '3rem' }}></div>
+                        <div className="spinner-border" style={{ width: '3rem', height: '3rem', color: colors.accent }}></div>
                         <p className="mt-3 text-muted fs-5">Loading categories...</p>
                     </div>
                 </Container>
@@ -72,10 +81,63 @@ function Categories() {
     }
 
     return (
-        <div className="py-5" style={{ background: 'linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%)' }}>
-            <Container>
+        <div className="py-5" style={{ background: 'linear-gradient(135deg, #f9fafb 0%, #f3f4f6 100%)', minHeight: '100vh' }}>
+            {/* Animated Background Elements */}
+            <div style={{
+                position: 'fixed',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                overflow: 'hidden',
+                pointerEvents: 'none',
+                zIndex: 0
+            }}>
+                <div style={{
+                    position: 'absolute',
+                    top: '25%',
+                    left: '-5%',
+                    width: '300px',
+                    height: '300px',
+                    borderRadius: '50%',
+                    background: colors.bg,
+                    mixBlendMode: 'multiply',
+                    filter: 'blur(40px)',
+                    opacity: 0.05,
+                    animation: 'float 8s infinite ease-in-out'
+                }}></div>
+                <div style={{
+                    position: 'absolute',
+                    bottom: '25%',
+                    right: '-5%',
+                    width: '400px',
+                    height: '400px',
+                    borderRadius: '50%',
+                    background: colors.accent,
+                    mixBlendMode: 'multiply',
+                    filter: 'blur(40px)',
+                    opacity: 0.05,
+                    animation: 'float 8s infinite ease-in-out 2s'
+                }}></div>
+                <div style={{
+                    position: 'absolute',
+                    top: '50%',
+                    left: '50%',
+                    transform: 'translate(-50%, -50%)',
+                    width: '250px',
+                    height: '250px',
+                    borderRadius: '50%',
+                    background: colors.highlight,
+                    mixBlendMode: 'multiply',
+                    filter: 'blur(40px)',
+                    opacity: 0.05,
+                    animation: 'pulse 4s infinite ease-in-out'
+                }}></div>
+            </div>
+
+            <Container style={{ position: 'relative', zIndex: 1 }}>
                 <h2 className="text-center mb-3" style={{ 
-                    color: colors.badge, 
+                    color: colors.bg, 
                     fontWeight: '700', 
                     fontSize: '2.5rem', 
                     position: 'relative' 
@@ -88,16 +150,49 @@ function Categories() {
                         transform: 'translateX(-50%)', 
                         width: '80px', 
                         height: '4px', 
-                        background: 'linear-gradient(90deg, #0B7A75, #D7C9AA)',
+                        background: `linear-gradient(90deg, ${colors.bg}, ${colors.accent})`,
                         borderRadius: '2px'
                     }}></div>
                 </h2>
                 <p className="text-center text-muted mb-5 fs-5">
                     Discover amazing products across different categories
                 </p>
+                {/* Search Bar */}
+                <div className="d-flex justify-content-center mb-4" style={{ maxWidth: 720, margin: '0 auto' }}>
+                    <div style={{ width: '100%' }}>
+                        <div style={{ position: 'relative' }}>
+                            <input
+                                type="text"
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                placeholder="Search categories..."
+                                style={{
+                                    width: '100%',
+                                    padding: '12px 16px 12px 44px',
+                                    borderRadius: '12px',
+                                    border: '2px solid rgba(0,0,0,0.06)',
+                                    boxShadow: '0 8px 24px rgba(0,0,0,0.04)',
+                                    fontSize: '1rem',
+                                    outline: 'none',
+                                    background: '#fff'
+                                }}
+                            />
+                            <i className="fa-solid fa-magnifying-glass" style={{
+                                position: 'absolute',
+                                left: '14px',
+                                top: '50%',
+                                transform: 'translateY(-50%)',
+                                color: 'rgba(0,0,0,0.35)',
+                                fontSize: '1.1rem'
+                            }} />
+                        </div>
+                    </div>
+                </div>
                 
                 <Row className="g-4 justify-content-center">
-                    {categories.map((category, index) => (
+                    {categories
+                        .filter(cat => cat.name.toLowerCase().includes(searchTerm.toLowerCase()))
+                        .map((category, index) => (
                         <Col key={category._id || index} xs={6} sm={4} md={3} lg={2} className="d-flex justify-content-center">
                             <CategoryCard category={category} index={index} />
                         </Col>
@@ -109,7 +204,7 @@ function Categories() {
                     {`
                     @keyframes float {
                         0%, 100% { transform: translateY(0px) rotate(0deg); }
-                        50% { transform: translateY(-10px) rotate(5deg); }
+                        50% { transform: translateY(-20px) rotate(5deg); }
                     }
                     
                     @keyframes pulse {
@@ -138,20 +233,16 @@ function Categories() {
 
 // Enhanced Category Card Component with BOTH Images and Animated Icons
 function CategoryCard({ category, index }) {
-    // Vibrant gradient colors for the animated bubbles
+    // Updated gradients to match second UI theme
     const gradients = [
-        'linear-gradient(135deg, #FF6B6B 0%, #FFE66D 100%)',
-        'linear-gradient(135deg, #48DBFB 0%, #6F86FF 100%)',
-        'linear-gradient(135deg, #FF9A8B 0%, #FF6A88 55%, #FF99AC 100%)',
-        'linear-gradient(135deg, #42E695 0%, #3BB2B8 100%)',
-        'linear-gradient(135deg, #FFD26F 0%, #FF7B54 100%)',
-        'linear-gradient(135deg, #A78BFA 0%, #F87171 100%)',
-        'linear-gradient(135deg, #60A5FA 0%, #34D399 100%)',
-        'linear-gradient(135deg, #FBBF24 0%, #F59E0B 100%)',
-        'linear-gradient(135deg, #C084FC 0%, #F472B6 100%)',
-        'linear-gradient(135deg, #2DD4BF 0%, #06B6D4 100%)',
-        'linear-gradient(135deg, #FB7185 0%, #F43F5E 100%)',
-        'linear-gradient(135deg, #8B5CF6 0%, #6366F1 100%)'
+        `linear-gradient(135deg, ${colors.bg} 0%, ${colors.accent} 100%)`,
+        `linear-gradient(135deg, ${colors.accent} 0%, #17a2b8 100%)`,
+        `linear-gradient(135deg, ${colors.bg} 0%, #2C5530 100%)`,
+        `linear-gradient(135deg, ${colors.badge} 0%, #C44536 100%)`,
+        `linear-gradient(135deg, #2D3748 0%, #4A5568 100%)`,
+        `linear-gradient(135deg, #744210 0%, ${colors.highlight} 100%)`,
+        `linear-gradient(135deg, ${colors.accent} 0%, #2D936C 100%)`,
+        `linear-gradient(135deg, ${colors.bg} 0%, #3A506B 100%)`
     ];
 
     // Colorful icons based on category name
@@ -209,15 +300,16 @@ function CategoryCard({ category, index }) {
                 transition: 'all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
                 background: '#ffffff',
                 overflow: 'hidden',
-                boxShadow: '0 12px 40px rgba(0, 0, 0, 0.15)'
+                boxShadow: '0 12px 40px rgba(0, 0, 0, 0.08)',
+                border: '1px solid rgba(0, 0, 0, 0.05)'
             }}
             onMouseEnter={(e) => {
                 e.currentTarget.style.transform = 'translateY(-15px) scale(1.08)';
-                e.currentTarget.style.boxShadow = '0 25px 60px rgba(0, 0, 0, 0.2)';
+                e.currentTarget.style.boxShadow = '0 25px 60px rgba(0, 0, 0, 0.12)';
             }}
             onMouseLeave={(e) => {
                 e.currentTarget.style.transform = 'translateY(0) scale(1)';
-                e.currentTarget.style.boxShadow = '0 12px 40px rgba(0, 0, 0, 0.15)';
+                e.currentTarget.style.boxShadow = '0 12px 40px rgba(0, 0, 0, 0.08)';
             }}
         >
             {/* Background Pattern with Animated Bubbles */}
@@ -228,7 +320,7 @@ function CategoryCard({ category, index }) {
                 right: 0,
                 bottom: 0,
                 background: gradient,
-                opacity: hasImage ? 0.15 : 0.1,
+                opacity: hasImage ? 0.08 : 0.05,
                 zIndex: 1
             }}></div>
 
@@ -314,8 +406,8 @@ function CategoryCard({ category, index }) {
                         alignItems: 'center',
                         justifyContent: 'center',
                         boxShadow: hasImage 
-                            ? '0 15px 35px rgba(0, 0, 0, 0.2)' 
-                            : '0 15px 35px rgba(0, 0, 0, 0.25)',
+                            ? '0 15px 35px rgba(0, 0, 0, 0.15)' 
+                            : '0 15px 35px rgba(0, 0, 0, 0.2)',
                         transition: 'all 0.4s ease',
                         border: hasImage ? `3px solid ${gradient}` : 'none',
                         animation: 'pulse 3s infinite ease-in-out'
@@ -411,8 +503,8 @@ function CategoryCard({ category, index }) {
                             left: 0,
                             right: 0,
                             bottom: 0,
-                            background: 'linear-gradient(to bottom, rgba(0,0,0,0.2), rgba(0,0,0,0.4))',
-                            opacity: 0.4
+                            background: 'linear-gradient(to bottom, rgba(0,0,0,0.1), rgba(0,0,0,0.3))',
+                            opacity: 0.3
                         }}></div>
                     )}
                 </div>
@@ -444,7 +536,7 @@ function CategoryCard({ category, index }) {
                         borderRadius: '15px',
                         display: 'inline-block',
                         margin: '0 auto',
-                        boxShadow: '0 6px 20px rgba(0, 0, 0, 0.15)',
+                        boxShadow: '0 6px 20px rgba(0, 0, 0, 0.1)',
                         border: '2px solid white'
                     }}>
                         {category.itemsCount || 0} {category.itemsCount === 1 ? 'item' : 'items'}
@@ -469,7 +561,7 @@ function CategoryCard({ category, index }) {
                     transform: 'translateX(15px) scale(0.8)',
                     transition: 'all 0.4s ease',
                     zIndex: 4,
-                    boxShadow: '0 6px 20px rgba(0, 0, 0, 0.2)'
+                    boxShadow: '0 6px 20px rgba(0, 0, 0, 0.15)'
                 }}
                 className="hover-arrow"
                 >
@@ -551,16 +643,19 @@ function CategoryPage() {
         setFiltered(updated);
     }, [sortOption, conditionFilter, data]);
 
+    // Product search (client-side) state
+    const [productSearch, setProductSearch] = useState('');
+
     if (loading) {
         return (
             <div style={{ 
-                background: 'linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)',
+                background: 'linear-gradient(135deg, #f9fafb 0%, #f3f4f6 100%)',
                 minHeight: '100vh',
                 padding: '40px 20px'
             }}>
                 <Container>
                     <div className="text-center py-5">
-                        <div className="spinner-border text-primary" style={{ width: '3rem', height: '3rem' }}></div>
+                        <div className="spinner-border" style={{ width: '3rem', height: '3rem', color: colors.accent }}></div>
                         <p className="mt-3 fs-5 text-muted">Loading {categoryName} products...</p>
                     </div>
                 </Container>
@@ -571,7 +666,7 @@ function CategoryPage() {
     if (!data) {
         return (
             <div style={{ 
-                background: 'linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)',
+                background: 'linear-gradient(135deg, #f9fafb 0%, #f3f4f6 100%)',
                 minHeight: '100vh',
                 padding: '40px 20px'
             }}>
@@ -588,15 +683,54 @@ function CategoryPage() {
 
     return (
         <div style={{ 
-            background: 'linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)',
+            background: 'linear-gradient(135deg, #f9fafb 0%, #f3f4f6 100%)',
             minHeight: '100vh',
             padding: '40px 20px'
         }}>
-            <Container>
+            {/* Animated Background Elements */}
+            <div style={{
+                position: 'fixed',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                overflow: 'hidden',
+                pointerEvents: 'none',
+                zIndex: 0
+            }}>
+                <div style={{
+                    position: 'absolute',
+                    top: '20%',
+                    left: '-5%',
+                    width: '300px',
+                    height: '300px',
+                    borderRadius: '50%',
+                    background: colors.bg,
+                    mixBlendMode: 'multiply',
+                    filter: 'blur(40px)',
+                    opacity: 0.05,
+                    animation: 'float 8s infinite ease-in-out'
+                }}></div>
+                <div style={{
+                    position: 'absolute',
+                    bottom: '20%',
+                    right: '-5%',
+                    width: '400px',
+                    height: '400px',
+                    borderRadius: '50%',
+                    background: colors.accent,
+                    mixBlendMode: 'multiply',
+                    filter: 'blur(40px)',
+                    opacity: 0.05,
+                    animation: 'float 8s infinite ease-in-out 2s'
+                }}></div>
+            </div>
+
+            <Container style={{ position: 'relative', zIndex: 1 }}>
                 {/* ===== Enhanced Header ===== */}
                 <div className="text-center mb-5">
                     <h1 style={{ 
-                        color: colors.badge, 
+                        color: colors.bg, 
                         fontWeight: '700', 
                         fontSize: '3rem',
                         marginBottom: '1rem',
@@ -611,7 +745,7 @@ function CategoryPage() {
                             transform: 'translateX(-50%)', 
                             width: '100px', 
                             height: '5px', 
-                            background: 'linear-gradient(90deg, #0B7A75, #D7C9AA)',
+                            background: `linear-gradient(90deg, ${colors.bg}, ${colors.accent})`,
                             borderRadius: '3px'
                         }}></div>
                     </h1>
@@ -620,17 +754,51 @@ function CategoryPage() {
                     </p>
                 </div>
 
+                {/* Product Search (centered, matches Categories page) */}
+                <div className="d-flex justify-content-center mb-4" style={{ maxWidth: 720, margin: '0 auto' }}>
+                    <div style={{ width: '100%' }}>
+                        <div style={{ position: 'relative' }}>
+                            <input
+                                type="text"
+                                value={productSearch}
+                                onChange={(e) => setProductSearch(e.target.value)}
+                                placeholder="Search products in this category..."
+                                style={{
+                                    width: '100%',
+                                    padding: '12px 16px 12px 44px',
+                                    borderRadius: '12px',
+                                    border: '2px solid rgba(0,0,0,0.06)',
+                                    boxShadow: '0 8px 24px rgba(0,0,0,0.04)',
+                                    fontSize: '1rem',
+                                    outline: 'none',
+                                    background: '#fff',
+                                    color: 'rgba(0,0,0,0.65)'
+                                }}
+                            />
+                            <i className="fa-solid fa-magnifying-glass" style={{
+                                position: 'absolute',
+                                left: '14px',
+                                top: '50%',
+                                transform: 'translateY(-50%)',
+                                color: 'rgba(0,0,0,0.35)',
+                                fontSize: '1.1rem'
+                            }} />
+                        </div>
+                    </div>
+                </div>
+
                 {/* ===== Enhanced Filters & Sort ===== */}
                 <Card className="mb-5 border-0" style={{
-                    background: 'linear-gradient(135deg, #19535F 0%, #0B7A75 100%)',
+                    background: 'linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%)',
                     borderRadius: '20px',
-                    boxShadow: '0 15px 40px rgba(11, 122, 117, 0.3)'
+                    boxShadow: '0 15px 40px rgba(0, 0, 0, 0.08)',
+                    border: '1px solid rgba(0, 0, 0, 0.05)'
                 }}>
                     <Card.Body className="p-4">
                         <Row className="align-items-center">
                             <Col md={6}>
                                 <div className="d-flex flex-wrap align-items-center gap-3">
-                                    <span className="text-white fw-bold fs-6">Sort By:</span>
+                                    <span className="fw-bold fs-6" style={{ color: colors.bg }}>Sort By:</span>
                                     {[
                                         { key: "featured", label: "Featured" },
                                         { key: "lowToHigh", label: "Price: Low to High" },
@@ -640,23 +808,29 @@ function CategoryPage() {
                                             key={option.key}
                                             className={`px-4 py-2 rounded-pill border-0 fw-semibold ${
                                                 sortOption === option.key 
-                                                    ? "bg-warning text-dark" 
-                                                    : "bg-white text-dark bg-opacity-10 text-white"
+                                                    ? "text-white" 
+                                                    : "bg-light text-dark"
                                             }`}
                                             style={{
                                                 transition: 'all 0.3s ease',
-                                                backdropFilter: 'blur(10px)'
+                                                background: sortOption === option.key 
+                                                    ? `linear-gradient(135deg, ${colors.bg}, ${colors.accent})`
+                                                    : '#f8f9fa',
+                                                color: sortOption === option.key ? 'white' : colors.bg,
+                                                border: sortOption === option.key ? 'none' : '1px solid #dee2e6'
                                             }}
                                             onClick={() => setSortOption(option.key)}
                                             onMouseEnter={(e) => {
                                                 if (sortOption !== option.key) {
-                                                    e.target.style.background = 'rgba(255,255,255,0.2)';
+                                                    e.target.style.background = `linear-gradient(135deg, ${colors.bg}, ${colors.accent})`;
+                                                    e.target.style.color = 'white';
                                                     e.target.style.transform = 'translateY(-2px)';
                                                 }
                                             }}
                                             onMouseLeave={(e) => {
                                                 if (sortOption !== option.key) {
-                                                    e.target.style.background = 'rgba(255,255,255,0.1)';
+                                                    e.target.style.background = '#f8f9fa';
+                                                    e.target.style.color = colors.bg;
                                                     e.target.style.transform = 'translateY(0)';
                                                 }
                                             }}
@@ -668,29 +842,35 @@ function CategoryPage() {
                             </Col>
                             <Col md={6}>
                                 <div className="d-flex flex-wrap align-items-center gap-3">
-                                    <span className="text-white fw-bold fs-6">Condition:</span>
+                                    <span className="fw-bold fs-6" style={{ color: colors.bg }}>Condition:</span>
                                     {["all", "New", "Like New", "Used"].map((cond) => (
                                         <button
                                             key={cond}
                                             className={`px-4 py-2 rounded-pill border-0 fw-semibold ${
                                                 conditionFilter === cond.toLowerCase()
-                                                    ? "bg-warning text-dark"
-                                                    : "bg-white text-dark bg-opacity-10 text-white"
+                                                    ? "text-white"
+                                                    : "bg-light text-dark"
                                             }`}
                                             style={{
                                                 transition: 'all 0.3s ease',
-                                                backdropFilter: 'blur(10px)'
+                                                background: conditionFilter === cond.toLowerCase()
+                                                    ? `linear-gradient(135deg, ${colors.bg}, ${colors.accent})`
+                                                    : '#f8f9fa',
+                                                color: conditionFilter === cond.toLowerCase() ? 'white' : colors.bg,
+                                                border: conditionFilter === cond.toLowerCase() ? 'none' : '1px solid #dee2e6'
                                             }}
                                             onClick={() => setConditionFilter(cond.toLowerCase())}
                                             onMouseEnter={(e) => {
                                                 if (conditionFilter !== cond.toLowerCase()) {
-                                                    e.target.style.background = 'rgba(255,255,255,0.2)';
+                                                    e.target.style.background = `linear-gradient(135deg, ${colors.bg}, ${colors.accent})`;
+                                                    e.target.style.color = 'white';
                                                     e.target.style.transform = 'translateY(-2px)';
                                                 }
                                             }}
                                             onMouseLeave={(e) => {
                                                 if (conditionFilter !== cond.toLowerCase()) {
-                                                    e.target.style.background = 'rgba(255,255,255,0.1)';
+                                                    e.target.style.background = '#f8f9fa';
+                                                    e.target.style.color = colors.bg;
                                                     e.target.style.transform = 'translateY(0)';
                                                 }
                                             }}
@@ -699,6 +879,7 @@ function CategoryPage() {
                                         </button>
                                     ))}
                                 </div>
+                                {/* (search moved above header for centered layout) */}
                             </Col>
                         </Row>
                     </Card.Body>
@@ -707,7 +888,7 @@ function CategoryPage() {
                 {/* ===== Enhanced Products Grid ===== */}
                 {filtered.length > 0 ? (
                     <Row className="g-4">
-                        {filtered.map((item, index) => (
+                        {(productSearch.trim() ? filtered.filter(el => el.name && el.name.toLowerCase().includes(productSearch.toLowerCase())) : filtered).map((item, index) => (
                             <Col key={item._id || index} xs={12} sm={6} md={4} lg={3}>
                                 <ProductCard item={item} index={index} />
                             </Col>
@@ -718,7 +899,8 @@ function CategoryPage() {
                         background: 'rgba(255,255,255,0.8)',
                         backdropFilter: 'blur(10px)',
                         borderRadius: '20px',
-                        padding: '60px 20px'
+                        padding: '60px 20px',
+                        border: '1px solid rgba(0, 0, 0, 0.05)'
                     }}>
                         <Card.Body>
                             <i className="fa-solid fa-search text-muted" style={{ fontSize: '4rem', marginBottom: '1rem' }}></i>
@@ -736,7 +918,7 @@ function CategoryPage() {
                 {`
                 @keyframes float {
                     0%, 100% { transform: translateY(0px) rotate(0deg); }
-                    50% { transform: translateY(-10px) rotate(5deg); }
+                    50% { transform: translateY(-20px) rotate(5deg); }
                 }
                 
                 @keyframes pulse {
@@ -756,10 +938,10 @@ function CategoryPage() {
 // Enhanced Product Card Component
 function ProductCard({ item, index }) {
     const gradients = [
-        'linear-gradient(135deg, #FF6B6B 0%, #FFE66D 100%)',
-        'linear-gradient(135deg, #48DBFB 0%, #6F86FF 100%)',
-        'linear-gradient(135deg, #FF9A8B 0%, #FF6A88 55%, #FF99AC 100%)',
-        'linear-gradient(135deg, #42E695 0%, #3BB2B8 100%)'
+        `linear-gradient(135deg, ${colors.bg} 0%, ${colors.accent} 100%)`,
+        `linear-gradient(135deg, ${colors.accent} 0%, #17a2b8 100%)`,
+        `linear-gradient(135deg, ${colors.bg} 0%, #2C5530 100%)`,
+        `linear-gradient(135deg, ${colors.badge} 0%, #C44536 100%)`
     ];
 
     const gradient = gradients[index % gradients.length];
@@ -768,105 +950,206 @@ function ProductCard({ item, index }) {
         <Card 
             as={Link}
             to={`/products/${item._id}`}
-            className="text-decoration-none border-0 product-card"
+            className="text-decoration-none text-center border-0 position-relative product-card"
             style={{
-                borderRadius: '20px',
-                transition: 'all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
+                width: '100%',
+                height: '380px',
+                borderRadius: '25px',
+                transition: 'all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
                 background: '#ffffff',
                 overflow: 'hidden',
-                boxShadow: '0 12px 35px rgba(0, 0, 0, 0.1)',
-                height: '100%'
+                boxShadow: '0 12px 40px rgba(0, 0, 0, 0.08)',
+                border: '1px solid rgba(0, 0, 0, 0.05)'
             }}
             onMouseEnter={(e) => {
-                e.currentTarget.style.boxShadow = '0 20px 50px rgba(0, 0, 0, 0.15)';
-                e.currentTarget.style.transform = 'translateY(-10px)';
+                e.currentTarget.style.transform = 'translateY(-15px) scale(1.05)';
+                e.currentTarget.style.boxShadow = '0 25px 60px rgba(0, 0, 0, 0.12)';
             }}
             onMouseLeave={(e) => {
-                e.currentTarget.style.boxShadow = '0 12px 35px rgba(0, 0, 0, 0.1)';
-                e.currentTarget.style.transform = 'translateY(0)';
+                e.currentTarget.style.transform = 'translateY(0) scale(1)';
+                e.currentTarget.style.boxShadow = '0 12px 40px rgba(0, 0, 0, 0.08)';
             }}
         >
-            {/* Product Image */}
-            <div style={{ 
-                position: 'relative', 
-                height: '220px', 
-                overflow: 'hidden' 
-            }}>
-                <img
-                    src={item.images?.[0] || item.image || "/placeholder.jpg"}
-                    alt={item.name}
-                    style={{
-                        width: '100%',
-                        height: '100%',
-                        objectFit: 'cover',
-                        transition: 'transform 0.4s ease'
-                    }}
-                    onMouseEnter={(e) => {
-                        e.target.style.transform = 'scale(1.1)';
-                    }}
-                    onMouseLeave={(e) => {
-                        e.target.style.transform = 'scale(1)';
-                    }}
-                />
-                
-                {/* Discount Badge */}
-                {item.discount && (
+            {/* Background Pattern with Animated Bubbles */}
+            <div style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                background: gradient,
+                opacity: 0.05,
+                zIndex: 1
+            }}></div>
+
+            {/* Animated Floating Bubbles */}
+            <div style={{
+                position: 'absolute',
+                top: '15%',
+                left: '10%',
+                width: '25px',
+                height: '25px',
+                borderRadius: '50%',
+                background: 'rgba(255,255,255,0.3)',
+                animation: 'float 6s infinite ease-in-out',
+                zIndex: 2
+            }}></div>
+            <div style={{
+                position: 'absolute',
+                bottom: '20%',
+                right: '15%',
+                width: '15px',
+                height: '15px',
+                borderRadius: '50%',
+                background: 'rgba(255,255,255,0.4)',
+                animation: 'float 8s infinite ease-in-out 1s',
+                zIndex: 2
+            }}></div>
+            <div style={{
+                position: 'absolute',
+                top: '65%',
+                left: '75%',
+                width: '12px',
+                height: '12px',
+                borderRadius: '50%',
+                background: 'rgba(255,255,255,0.2)',
+                animation: 'float 7s infinite ease-in-out 2s',
+                zIndex: 2
+            }}></div>
+
+            {/* Main Content */}
+            <div className="position-relative z-3 d-flex flex-column h-100">
+                {/* Product Image Section */}
+                <div style={{ 
+                    position: 'relative', 
+                    height: '200px',
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'center',
+                    overflow: 'hidden'
+                }}>
+                    {/* Product Image */}
+                    <img
+                        src={item.images?.[0] || item.image || "/placeholder.jpg"}
+                        alt={item.name}
+                        style={{
+                            width: '100%',
+                            height: '100%',
+                            objectFit: 'cover',
+                            transition: 'transform 0.5s ease'
+                        }}
+                        onMouseEnter={(e) => {
+                            e.target.style.transform = 'scale(1.15)';
+                        }}
+                        onMouseLeave={(e) => {
+                            e.target.style.transform = 'scale(1)';
+                        }}
+                    />
+
+                    {/* Discount Badge */}
+                    {item.discount && (
+                        <div style={{
+                            position: 'absolute',
+                            top: '15px',
+                            right: '15px',
+                            background: gradient,
+                            color: 'white',
+                            padding: '8px 14px',
+                            borderRadius: '20px',
+                            fontSize: '0.8rem',
+                            fontWeight: '800',
+                            boxShadow: '0 6px 20px rgba(0,0,0,0.2)',
+                            border: '2px solid white',
+                            zIndex: 4,
+                            animation: 'pulse 2s infinite ease-in-out'
+                        }}>
+                            {item.discount}% OFF
+                        </div>
+                    )}
+
+                    {/* Condition Badge */}
                     <div style={{
                         position: 'absolute',
                         top: '15px',
-                        right: '15px',
-                        background: gradient,
-                        color: 'white',
-                        padding: '6px 12px',
+                        left: '15px',
+                        background: 'rgba(255,255,255,0.95)',
+                        color: colors.bg,
+                        padding: '6px 14px',
                         borderRadius: '15px',
-                        fontSize: '0.8rem',
+                        fontSize: '0.75rem',
                         fontWeight: '700',
-                        boxShadow: '0 4px 15px rgba(0,0,0,0.2)'
+                        backdropFilter: 'blur(10px)',
+                        border: `2px solid ${gradient}`,
+                        zIndex: 4
                     }}>
-                        {item.discount}% OFF
+                        {item.condition || 'Good'}
                     </div>
-                )}
 
-                {/* Condition Badge */}
-                <div style={{
-                    position: 'absolute',
-                    top: '15px',
-                    left: '15px',
-                    background: 'rgba(255,255,255,0.9)',
-                    color: colors.bg,
-                    padding: '4px 12px',
-                    borderRadius: '12px',
-                    fontSize: '0.7rem',
-                    fontWeight: '600',
-                    backdropFilter: 'blur(10px)'
-                }}>
-                    {item.condition || 'Good'}
+                    {/* Dark Overlay for Images for Better Contrast */}
+                    <div style={{
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        background: 'linear-gradient(to bottom, rgba(0,0,0,0.1), rgba(0,0,0,0.3))',
+                        opacity: 0.2
+                    }}></div>
+
+                    {/* Floating Particles Around the Image */}
+                    <div style={{
+                        position: 'absolute',
+                        top: '25%',
+                        right: '20%',
+                        width: '10px',
+                        height: '10px',
+                        borderRadius: '50%',
+                        background: gradient,
+                        opacity: 0.7,
+                        animation: 'float 4s infinite ease-in-out',
+                        zIndex: 3
+                    }}></div>
+                    <div style={{
+                        position: 'absolute',
+                        bottom: '30%',
+                        left: '20%',
+                        width: '8px',
+                        height: '8px',
+                        borderRadius: '50%',
+                        background: gradient,
+                        opacity: 0.5,
+                        animation: 'float 5s infinite ease-in-out 0.5s',
+                        zIndex: 3
+                    }}></div>
                 </div>
-            </div>
+                
+                {/* Product Info */}
+                <Card.Body className="d-flex flex-column justify-content-center position-relative z-3" 
+                    style={{ 
+                        padding: '1.5rem', 
+                        flex: '1'
+                    }}>
+                    <Card.Title style={{ 
+                        color: colors.bg, 
+                        fontWeight: '800', 
+                        fontSize: '1.1rem', 
+                        marginBottom: '0.75rem',
+                        lineHeight: '1.4',
+                        height: '2.8rem',
+                        overflow: 'hidden',
+                        display: '-webkit-box',
+                        WebkitLineClamp: 2,
+                        WebkitBoxOrient: 'vertical'
+                    }}>
+                        {item.name}
+                    </Card.Title>
 
-            {/* Product Info */}
-            <Card.Body className="p-4">
-                <Card.Title style={{ 
-                    color: colors.bg, 
-                    fontWeight: '700', 
-                    fontSize: '1.1rem',
-                    marginBottom: '0.5rem',
-                    lineHeight: '1.4',
-                    height: '2.8rem',
-                    overflow: 'hidden',
-                    display: '-webkit-box',
-                    WebkitLineClamp: 2,
-                    WebkitBoxOrient: 'vertical'
-                }}>
-                    {item.name}
-                </Card.Title>
-
-                <div className="d-flex justify-content-between align-items-center mt-3">
-                    <div>
+                    {/* Price Section */}
+                    <div className="d-flex flex-column align-items-center gap-2 mt-2">
                         <div style={{ 
                             color: colors.accent, 
                             fontWeight: '800', 
-                            fontSize: '1.3rem' 
+                            fontSize: '1.4rem' 
                         }}>
                             ${item.price}
                         </div>
@@ -874,36 +1157,73 @@ function ProductCard({ item, index }) {
                             <div style={{ 
                                 color: '#6c757d', 
                                 textDecoration: 'line-through',
-                                fontSize: '0.9rem'
+                                fontSize: '0.9rem',
+                                fontWeight: '600'
                             }}>
                                 ${item.originalPrice}
                             </div>
                         )}
                     </div>
-                    
-                    <div style={{
-                        width: '40px',
-                        height: '40px',
-                        borderRadius: '50%',
+
+                    {/* Rating/Status Badge */}
+                    <div style={{ 
+                        color: 'white', 
+                        fontSize: '0.75rem', 
+                        fontWeight: '700',
                         background: gradient,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        color: 'white',
-                        fontSize: '1rem',
-                        transition: 'all 0.3s ease'
-                    }}
-                    onMouseEnter={(e) => {
-                        e.currentTarget.style.transform = 'scale(1.1) rotate(90deg)';
-                    }}
-                    onMouseLeave={(e) => {
-                        e.currentTarget.style.transform = 'scale(1) rotate(0deg)';
-                    }}
-                    >
-                        <i className="fa-solid fa-arrow-right"></i>
+                        padding: '6px 16px',
+                        borderRadius: '15px',
+                        display: 'inline-block',
+                        margin: '12px auto 0',
+                        boxShadow: '0 6px 20px rgba(0, 0, 0, 0.1)',
+                        border: '2px solid white'
+                    }}>
+                        {item.condition === 'new' ? '✨ New Arrival' : '🔥 Hot Deal'}
                     </div>
+                </Card.Body>
+
+                {/* Enhanced Hover Arrow Indicator */}
+                <div style={{
+                    position: 'absolute',
+                    bottom: '20px',
+                    right: '20px',
+                    width: '40px',
+                    height: '40px',
+                    borderRadius: '50%',
+                    background: gradient,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: 'white',
+                    fontSize: '1rem',
+                    opacity: 0,
+                    transform: 'translateX(15px) scale(0.8)',
+                    transition: 'all 0.4s ease',
+                    zIndex: 4,
+                    boxShadow: '0 6px 20px rgba(0, 0, 0, 0.15)'
+                }}
+                className="hover-arrow"
+                >
+                    <i className="fa-solid fa-arrow-right"></i>
                 </div>
-            </Card.Body>
+            </div>
+
+            {/* Enhanced Border Glow Effect */}
+            <div style={{
+                position: 'absolute',
+                top: '-3px',
+                left: '-3px',
+                right: '-3px',
+                bottom: '-3px',
+                borderRadius: '28px',
+                background: gradient,
+                opacity: 0,
+                transition: 'opacity 0.4s ease',
+                zIndex: 0,
+                filter: 'blur(8px)'
+            }}
+            className="border-glow"
+            ></div>
         </Card>
     );
 }

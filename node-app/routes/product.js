@@ -6,9 +6,6 @@ export default function productRoute(db) {
   const bids = db.collection("Bids");
   const notifications = db.collection("Notification");
 
-
-
-  
   // Get all products
   router.get("/", async (req, res) => {
     try {
@@ -20,65 +17,81 @@ export default function productRoute(db) {
     }
   });
 
-  // Get a product by string ID - UPDATED to include likes, ratings, and comments
-  router.get("/:id", async (req, res) => {
-    try {
-      const { id } = req.params;
-      const { userId } = req.query;
+  // Get a product by string ID - UPDATED to include accepted offers
+// In product.js - Update the get product route to show all bids to product owners
+router.get("/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { userId } = req.query;
 
-      console.log("🔍 Fetching product with ID:", id, "for user:", userId);
+    console.log("🔍 Fetching product with ID:", id, "for user:", userId);
 
-      if (!id || typeof id !== "string") {
-        return res.status(400).json({ message: "Invalid product ID format" });
-      }
-
-      const product = await products.findOne({ _id: id });
-      if (!product) {
-        console.warn("⚠️ Product not found for ID:", id);
-        return res.status(404).json({ message: "Product not found" });
-      }
-
-      let filteredProduct = { ...product };
-      
-      // Handle bids filtering based on user role
-      if (userId) {
-        if (userId === product.userId) {
-          // Owner sees all bids
-          filteredProduct.activeBids = product.activeBids || [];
-        } else {
-          // Regular user sees only their own bids
-          if (filteredProduct.activeBids && filteredProduct.activeBids.length > 0) {
-            filteredProduct.activeBids = filteredProduct.activeBids.filter(
-              bid => bid.bidderId === userId.toString()
-            );
-          } else {
-            filteredProduct.activeBids = [];
-          }
-        }
-
-        // Handle user-specific data (likes, ratings)
-        filteredProduct.userRating = product.ratings?.find(r => r.userId === userId)?.rating || null;
-        filteredProduct.liked = product.likes?.includes(userId) || false;
-      } else {
-        filteredProduct.activeBids = [];
-        filteredProduct.userRating = null;
-        filteredProduct.liked = false;
-      }
-
-      // Calculate average rating
-      if (product.ratings && product.ratings.length > 0) {
-        const total = product.ratings.reduce((sum, r) => sum + r.rating, 0);
-        filteredProduct.averageRating = total / product.ratings.length;
-      } else {
-        filteredProduct.averageRating = 0;
-      }
-
-      res.json(filteredProduct);
-    } catch (err) {
-      console.error("Product fetch error:", err);
-      res.status(500).json({ message: err.message });
+    if (!id || typeof id !== "string") {
+      return res.status(400).json({ message: "Invalid product ID format" });
     }
-  });
+
+    const product = await products.findOne({ _id: id });
+    if (!product) {
+      console.warn("⚠️ Product not found for ID:", id);
+      return res.status(404).json({ message: "Product not found" });
+    }
+
+    let filteredProduct = { ...product };
+    
+    // ✅ ENHANCED: Handle bids filtering - Product owners see ALL bids
+    if (userId) {
+      // Check if current user is the product owner
+      const isProductOwner = userId === product.userId;
+      
+      if (isProductOwner) {
+        // ✅ OWNER: Show ALL bids on their product
+        filteredProduct.activeBids = product.activeBids || [];
+        console.log(`👑 Product owner ${userId} sees ALL ${filteredProduct.activeBids.length} bids`);
+      } else {
+        // ✅ REGULAR USER: Show only their own bids
+        if (filteredProduct.activeBids && filteredProduct.activeBids.length > 0) {
+          filteredProduct.activeBids = filteredProduct.activeBids.filter(
+            bid => bid.bidderId === userId.toString()
+          );
+          console.log(`👤 Regular user ${userId} sees only their ${filteredProduct.activeBids.length} bids`);
+        } else {
+          filteredProduct.activeBids = [];
+        }
+      }
+
+      // Check if user has an accepted offer for this product
+      if (product.acceptedOffer && product.acceptedOffer.bidderId === userId.toString()) {
+        filteredProduct.userAcceptedOffer = product.acceptedOffer;
+        console.log(`✅ User ${userId} has accepted offer: $${product.acceptedOffer.acceptedAmount}`);
+      }
+
+      // Handle user-specific data (likes, ratings)
+      filteredProduct.userRating = product.ratings?.find(r => r.userId === userId)?.rating || null;
+      filteredProduct.liked = product.likes?.includes(userId) || false;
+      
+      // ✅ ADD: Check if user is product owner
+      filteredProduct.isOwner = isProductOwner;
+    } else {
+      filteredProduct.activeBids = [];
+      filteredProduct.userRating = null;
+      filteredProduct.liked = false;
+      filteredProduct.isOwner = false;
+    }
+
+    // Calculate average rating
+    if (product.ratings && product.ratings.length > 0) {
+      const total = product.ratings.reduce((sum, r) => sum + r.rating, 0);
+      filteredProduct.averageRating = total / product.ratings.length;
+    } else {
+      filteredProduct.averageRating = 0;
+    }
+
+    res.json(filteredProduct);
+  } catch (err) {
+    console.error("Product fetch error:", err);
+    res.status(500).json({ message: err.message });
+  }
+});
 
   // ✅ FIXED: Place/Update offer - UPDATED to sync bid status
   router.post("/:id/placeBid", async (req, res) => {
@@ -257,6 +270,104 @@ export default function productRoute(db) {
     }
   });
 
+  // ✅ NEW: Accept Bid and Store Accepted Offer
+  router.post("/:id/acceptBid", async (req, res) => {
+    console.log("🎯 POST /:id/acceptBid triggered:", req.params.id);
+
+    try {
+      const { id } = req.params;
+      const { bidId, bidderId, acceptedAmount } = req.body;
+
+      if (!id || typeof id !== "string") {
+        return res.status(400).json({ message: "Invalid product ID format" });
+      }
+
+      if (!bidId || !bidderId || !acceptedAmount) {
+        return res.status(400).json({ 
+          message: "Missing required fields: bidId, bidderId, acceptedAmount" 
+        });
+      }
+
+      // Find the product
+      const product = await products.findOne({ _id: id });
+      if (!product) return res.status(404).json({ message: "Product not found" });
+
+      // Update the bid status to accepted
+      await bids.updateOne(
+        { _id: bidId },
+        { 
+          $set: { 
+            bidStatus: "accepted",
+            updatedAt: new Date().toISOString()
+          } 
+        }
+      );
+
+      // Update product's activeBids to mark this bid as accepted and reject others
+      const updatedActiveBids = (product.activeBids || []).map(bid => {
+        if (bid.bidId === bidId) {
+          return { ...bid, bidStatus: "accepted" };
+        }
+        // Reject all other bids for this product
+        if (bid.bidId !== bidId && bid.bidStatus === "pending") {
+          return { ...bid, bidStatus: "rejected" };
+        }
+        return bid;
+      });
+
+      // Store accepted offer information for this specific user
+      const acceptedOffer = {
+        bidderId: String(bidderId),
+        acceptedAmount: parseFloat(acceptedAmount),
+        acceptedAt: new Date().toISOString(),
+        bidId: bidId,
+        originalPrice: product.price
+      };
+
+      // Update product with accepted bid status and store accepted offer
+      await products.updateOne(
+        { _id: id },
+        {
+          $set: {
+            activeBids: updatedActiveBids,
+            acceptedOffer: acceptedOffer, // Store the accepted offer for specific user
+            isAvailable: false, // Mark as sold
+            soldTo: bidderId,
+            soldPrice: parseFloat(acceptedAmount),
+            soldAt: new Date().toISOString()
+          }
+        }
+      );
+
+      // Create notification for the bidder
+      const bidderNotification = {
+        userId: bidderId,
+        type: "bid_accepted",
+        title: "🎉 Offer Accepted!",
+        message: `Your offer of $${acceptedAmount} for "${product.name}" has been accepted! You can now purchase it at this special price.`,
+        relatedProductId: id,
+        relatedBidId: bidId,
+        productName: product.name,
+        bidAmount: parseFloat(acceptedAmount),
+        status: "ACCEPTED",
+        isRead: false,
+        createdAt: new Date().toISOString(),
+      };
+
+      await notifications.insertOne(bidderNotification);
+
+      console.log(`✅ Bid ${bidId} accepted for user ${bidderId} at $${acceptedAmount}`);
+
+      res.status(200).json({
+        message: "✅ Offer accepted successfully!",
+        acceptedOffer: acceptedOffer
+      });
+    } catch (err) {
+      console.error("Error accepting bid:", err);
+      res.status(500).json({ message: "Server error", error: err.message });
+    }
+  });
+
   // LIKE PRODUCT
   router.patch("/:id/like", async (req, res) => {
     try {
@@ -389,10 +500,6 @@ export default function productRoute(db) {
       res.status(500).json({ message: "Server error" });
     }
   });
-
-
-
-  
 
   return router;
 }

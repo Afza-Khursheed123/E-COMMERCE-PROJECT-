@@ -81,7 +81,9 @@ function NotificationDrawer({ name, ...props }) {
 
                 if (response.data?.notifications) {
                     console.log(`📨 Found ${response.data.notifications.length} real notifications`);
-                    setNotifications(response.data.notifications.slice(0, 5));
+                    // Ensure newest-first ordering and take top 5
+                    const sorted = response.data.notifications.slice().sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+                    setNotifications(sorted.slice(0, 5));
                 } else {
                     console.log("❌ No notifications in response, using mock data");
                     setNotifications(mockNotifications);
@@ -115,9 +117,22 @@ function NotificationDrawer({ name, ...props }) {
         navigate('/dashboard');
     };
 
-    const handleMarkAsRead = (id, e) => {
+    const handleMarkAsRead = async (id, e) => {
         e.stopPropagation();
-        setNotifications(prev => prev.filter(notif => notif._id !== id));
+        try {
+            // Call backend to delete notification
+            const response = await api.delete(`/dashboard/notifications/${id}`);
+            if (response.data?.success) {
+                setNotifications(prev => prev.filter(notif => notif._id !== id));
+            } else {
+                console.error('Failed to delete notification', response.data);
+                alert('Failed to delete notification');
+            }
+        } catch (err) {
+            console.error('Error deleting notification:', err);
+            // Fallback to local removal to avoid blocking UX
+            setNotifications(prev => prev.filter(notif => notif._id !== id));
+        }
     };
 
     // Get notification styling

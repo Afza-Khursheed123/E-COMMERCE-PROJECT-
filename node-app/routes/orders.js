@@ -221,14 +221,22 @@ export default function orderRoute(db) {
         shippingAddress,
         sessionId,
         customerEmail,
+        buyerName,
+        productName,
+        price,
+        sellerName,
         productId // ✅ Add this to accept productId array from frontend
       } = req.body;
       
       console.log("📦 Creating order with data:", { 
         userId, 
         productsCount: products?.length,
-        productId: productId, // ✅ Log the productId array
-        totalAmount: totalAmount || total
+        productId: productId,
+        totalAmount: totalAmount || total,
+        paymentMethod,
+        status,
+        buyerName,
+        productName
       });
 
       // Validate required fields
@@ -239,10 +247,19 @@ export default function orderRoute(db) {
         });
       }
 
+      if (!products || products.length === 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'Products array is required and cannot be empty'
+        });
+      }
+
       // Use provided values or calculate
       const finalTotalAmount = totalAmount || total || 0;
       const finalSubtotal = subtotal || finalTotalAmount;
       const finalTax = tax || 0;
+      const finalStatus = status || 'Processing';
+      const finalPaymentMethod = paymentMethod || 'stripe';
 
       // Generate order ID
       const orderId = generateOrderId();
@@ -256,38 +273,48 @@ export default function orderRoute(db) {
         // ✅ FIXED: Store as array of product IDs
         productId: productIdArray,
         userId: userId,
-        status: status || 'Processing',
+        status: finalStatus,
         totalAmount: finalTotalAmount,
-        paymentMethod: paymentMethod || 'stripe',
+        paymentMethod: finalPaymentMethod,
         shippingAddress: formatAddressString(shippingAddress),
         createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        // ✅ Store all order details from user
+        customerEmail: customerEmail || 'unknown@example.com',
+        buyerName: buyerName || 'Customer',
+        productName: productName || `Product ${productIdArray[0] || 'Unknown'}`,
+        price: price || finalTotalAmount,
+        sellerName: sellerName || 'Seller',
         // ✅ Always include products array with detailed information
-        products: products?.map(product => ({
+        products: products.map(product => ({
           productId: product.productId,
           productName: product.productName || `Product ${product.productId}`,
           price: product.price || 0,
           quantity: product.quantity || 1,
           image: product.image || 'https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=400&h=300&fit=crop'
-        })) || []
+        }))
       };
 
       // Add optional fields
       if (subtotal !== undefined) newOrder.subtotal = subtotal;
       if (tax !== undefined) newOrder.tax = tax;
-      if (customerEmail) newOrder.customerEmail = customerEmail;
       if (sessionId) newOrder.sessionId = sessionId;
 
       console.log("💾 Saving order to Orders collection:", {
         orderId: newOrder._id,
-        productId: newOrder.productId, // ✅ This should now be an array
-        productsCount: newOrder.products.length
+        productId: newOrder.productId,
+        productsCount: newOrder.products.length,
+        status: newOrder.status,
+        paymentMethod: newOrder.paymentMethod,
+        buyerName: newOrder.buyerName,
+        productName: newOrder.productName
       });
 
       const ordersCollection = db.collection('Orders');
       await ordersCollection.insertOne(newOrder);
       
       console.log(`✅ Order created: ${newOrder._id} for user: ${userId}`);
-      console.log(`📊 Product IDs stored:`, newOrder.productId);
+      console.log(`📊 Order details: ${newOrder.buyerName} | ${newOrder.productName} | ${newOrder.sellerName}`);
       
       res.status(201).json({
         success: true,
@@ -297,6 +324,7 @@ export default function orderRoute(db) {
       
     } catch (error) {
       console.error('❌ Error creating order:', error);
+      console.error('Stack trace:', error.stack);
       res.status(500).json({ 
         success: false, 
         message: 'Failed to create order',

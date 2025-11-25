@@ -1,9 +1,20 @@
 import express from "express";
-import { ObjectId } from "mongodb"; // still used only for generating new string IDs
+import { ObjectId } from "mongodb"; // used for flexible ID handling
 
 export default function productListingRoute(db) {
   const router = express.Router();
   const products = db.collection("Products");
+
+  // Helper to create a query that works with either string IDs or ObjectId stored IDs
+  const createIdQuery = (id) => {
+    if (!id) return null;
+    // If id is a 24-hex string matching ObjectId, query by ObjectId
+    if (ObjectId.isValid(id) && String(new ObjectId(id)) === id) {
+      return { _id: new ObjectId(id) };
+    }
+    // Otherwise try string match
+    return { _id: id };
+  };
 
   //     Get all products
   router.get("/", async (req, res) => {
@@ -16,15 +27,14 @@ export default function productListingRoute(db) {
     }
   });
 
-  //     Get product by string ID
+  //     Get product by ID (supports string or ObjectId)
   router.get("/:id", async (req, res) => {
     try {
       const { id } = req.params;
-      if (!id || typeof id !== "string") {
-        return res.status(400).json({ message: "Invalid ID format" });
-      }
+      const query = createIdQuery(id);
+      if (!query) return res.status(400).json({ message: "Invalid ID format" });
 
-      const product = await products.findOne({ _id: id });
+      const product = await products.findOne(query);
       if (!product) return res.status(404).json({ message: "Product not found" });
 
       res.json(product);
@@ -108,12 +118,10 @@ export default function productListingRoute(db) {
     try {
       const { id } = req.params;
       const { amount, bidderId, bidderName } = req.body;
+      const productQuery = createIdQuery(id);
+      if (!productQuery) return res.status(400).json({ message: "Invalid ID format" });
 
-      if (!id || typeof id !== "string") {
-        return res.status(400).json({ message: "Invalid ID format" });
-      }
-
-      const product = await products.findOne({ _id: id });
+      const product = await products.findOne(productQuery);
       if (!product)
         return res.status(404).json({ message: "Product not found" });
 
@@ -125,7 +133,7 @@ export default function productListingRoute(db) {
       };
 
       await products.updateOne(
-        { _id: id },
+        productQuery,
         {
           $push: {
             activeBids: newBid,
@@ -150,16 +158,14 @@ export default function productListingRoute(db) {
     try {
       const { id } = req.params;
       const updateData = req.body;
+      const productQuery = createIdQuery(id);
+      if (!productQuery) return res.status(400).json({ message: "Invalid ID format" });
 
-      if (!id || typeof id !== "string") {
-        return res.status(400).json({ message: "Invalid ID format" });
-      }
-
-      const result = await products.updateOne({ _id: id }, { $set: updateData });
+      const result = await products.updateOne(productQuery, { $set: updateData });
       if (!result.matchedCount)
         return res.status(404).json({ message: "Product not found" });
 
-      const updated = await products.findOne({ _id: id });
+      const updated = await products.findOne(productQuery);
       res.json(updated);
     } catch (err) {
       console.error("    Update error:", err);
@@ -172,15 +178,25 @@ export default function productListingRoute(db) {
     try {
       const { id } = req.params;
 
-      if (!id || typeof id !== "string") {
-        return res.status(400).json({ message: "Invalid ID format" });
+      const productQuery = createIdQuery(id);
+      if (!productQuery) return res.status(400).json({ message: "Invalid ID format" });
+
+      // Find product using flexible query
+      const product = await products.findOne(productQuery);
+      if (!product) return res.status(404).json({ message: "Product not found" });
+
+      // Delete by the same query to ensure correct type used
+      const delResult = await products.deleteOne(productQuery);
+      if (delResult.deletedCount === 0) {
+        // As a fallback, try deleting by string _id and ObjectId
+        if (ObjectId.isValid(id)) {
+          const alt = await products.deleteOne({ _id: new ObjectId(id) });
+          if (alt.deletedCount === 0) return res.status(500).json({ message: 'Failed to delete product' });
+        } else {
+          const alt = await products.deleteOne({ _id: id });
+          if (alt.deletedCount === 0) return res.status(500).json({ message: 'Failed to delete product' });
+        }
       }
-
-      const product = await products.findOne({ _id: id });
-      if (!product)
-        return res.status(404).json({ message: "Product not found" });
-
-      await products.deleteOne({ _id: id });
 
       //     Decrease category count
       const categories = db.collection("Categories");

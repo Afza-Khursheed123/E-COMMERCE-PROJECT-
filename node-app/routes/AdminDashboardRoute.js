@@ -88,23 +88,41 @@ export default function (db) {
       console.log("🔍 Active Orders Current:", activeOrders);
       console.log("🔍 Orders Growth:", ordersGrowth);
 
-      // ===== RECENT ORDERS (orders with DELIVERED status from Orders table) =====
+      // ===== RECENT ORDERS (orders from last 24 hours with DELIVERED status) =====
+      const now = new Date();
+      const last24Hours = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+      
       const recentOrders = allOrders
         .filter(order => {
           const orderStatus = (order.status || "").toLowerCase();
-          return orderStatus === "delivered";
+          const orderDate = new Date(order.createdAt);
+          return orderStatus === "delivered" && orderDate >= last24Hours;
         })
         .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
         .map((order) => {
-          // Get user info for customer name
-          const user = allUsers.find(u => u._id?.toString() === order.userId?.toString());
-          
+          // Robust buyer ID handling (orders may use buyerId, userId, or other fields)
+          const buyerId = order.buyerId || order.userId || order.buyer || order.customerId || order.buyer_id || null;
+          const buyerIdStr = buyerId ? String(buyerId) : null;
+
+          // Get user info for customer name using multiple possible ID formats
+          const user = allUsers.find(u => {
+            try {
+              const uid = u._id ? String(u._id) : "";
+              return buyerIdStr && (uid === buyerIdStr || uid === String(order.userId) || uid === String(order.buyerId));
+            } catch (e) {
+              return false;
+            }
+          });
+
+          const rawStatus = order.status || "Unknown";
+          const status = rawStatus.charAt(0).toUpperCase() + rawStatus.slice(1);
+
           return {
             _id: order._id.toString(),
             orderId: order._id?.toString() || order.orderId,
             customerName: user?.name || "Unknown Customer",
-            customerId: order.userId?.toString(),
-            status: order.status || "Unknown"  // Show ORDER status, not payment status
+            customerId: buyerIdStr || null,
+            status: status  // Normalized order status (Title Case)
           };
         });
 

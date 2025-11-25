@@ -293,8 +293,23 @@ export default function stripeRoutes(db) {
               const orderResult = await ordersCollection.insertOne(orderData);
               console.log("✅ Order saved to Orders collection:", orderResult.insertedId);
 
-              // Create payment record
-              paymentData = {
+              // ✅ FIXED: Fetch actual seller name from first product
+              let sellerName = 'Unknown Seller';
+              if (paymentInfo.products && paymentInfo.products.length > 0) {
+                const firstProductId = paymentInfo.products[0].productId;
+                try {
+                  const product = await db.collection('Products').findOne({ _id: firstProductId });
+                  if (product && product.userName) {
+                    sellerName = product.userName;
+                    console.log("✅ Fetched seller name from product:", sellerName);
+                  }
+                } catch (sellerError) {
+                  console.error("⚠️ Error fetching seller name:", sellerError.message);
+                }
+              }
+
+              // Create payment record with actual seller name
+              const paymentData = {
                 orderId: orderId,
                 status: 'Completed',
                 totalAmount: totals.total,
@@ -307,9 +322,8 @@ export default function stripeRoutes(db) {
                   : 'Multiple Products',
                 price: totals.total,
                 buyerName: paymentInfo.shippingAddress?.fullName || 'Customer',
-                sellerName: 'Thriftify'
+                sellerName: sellerName
               };
-
               // Save payment
               const paymentsCollection = db.collection('Payments');
               const paymentResult = await paymentsCollection.insertOne(paymentData);
@@ -393,5 +407,152 @@ export default function stripeRoutes(db) {
     });
   });
 
+
+
+  // In your stripeRoutes.js - Update the checkout session creation
+router.post("/create-checkout-session", async (req, res) => {
+  try {
+    console.log("=== STRIPE CHECKOUT REQUEST START ===");
+    
+    const { 
+      customerEmail, 
+      userId, 
+      products, 
+      shippingAddress 
+    } = req.body;
+
+    // Validate required fields
+    if (!customerEmail) {
+      return res.status(400).json({
+        success: false,
+        error: "Customer email is required"
+      });
+    }
+
+    if (!products || !Array.isArray(products) || products.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: "No products in cart"
+      });
+    }
+
+    // 🔥 NEW: Fetch latest product data to check for accepted offers
+    const enhancedProducts = await Promise.all(
+      products.map(async (product) => {
+        const productData = await db.collection("Products").findOne({ 
+          _id: product.productId 
+        });
+        
+        let finalPrice = product.price;
+        let isAcceptedOffer = false;
+        
+        // Check if user has an accepted offer for this product
+        if (productData && productData.acceptedOffer && 
+            productData.acceptedOffer.bidderId === String(userId)) {
+          finalPrice = productData.acceptedOffer.acceptedAmount;
+          isAcceptedOffer = true;
+          console.log(`💰 Using accepted offer price for ${product.productId}: $${finalPrice}`);
+        }
+        
+        return {
+          ...product,
+          price: finalPrice,
+          isAcceptedOffer: isAcceptedOffer,
+          productName: productData?.name || product.productName,
+          image: productData?.images?.[0] || product.image
+        };
+      })
+    );
+
+    // Calculate totals with potential accepted offer prices
+    const totals = calculateOrderTotals(enhancedProducts);
+    console.log("💰 Calculated totals with accepted offers:", totals);
+
+    // Create line items for Stripe
+    const lineItems = enhancedProducts.map((product, index) => {
+      const sanitizedImages = sanitizeImageUrl(product.image);
+
+      return {
+        price_data: {
+          currency: 'usd',
+          product_data: {
+            name: product.isAcceptedOffer 
+              ? `${product.productName} (Accepted Offer)` 
+              : product.productName,
+            images: sanitizedImages,
+          },
+          unit_amount: Math.round(product.price * 100),
+        },
+        quantity: product.quantity,
+      };
+    });
+
+    console.log("🛒 Created line items:", lineItems.length);
+
+    // Create Stripe checkout session
+    console.log("🔄 Creating Stripe checkout session...");
+    const session = await stripe.checkout.sessions.create({
+      payment_method_types: ['card'],
+      line_items: lineItems,
+      mode: 'payment',
+      success_url: `${YOUR_DOMAIN}/checkout?success=true&session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${YOUR_DOMAIN}/checkout?canceled=true`,
+      customer_email: customerEmail,
+      metadata: {
+        userId: userId || 'guest',
+        productsCount: products.length.toString(),
+      },
+      shipping_address_collection: {
+        allowed_countries: ['US', 'CA', 'GB', 'PK'],
+      },
+    });
+
+    console.log("✅ Stripe session created successfully:", session.id);
+
+    // Save to database with pending status
+    if (db) {
+      try {
+        const pendingPayment = {
+          sessionId: session.id,
+          userId: userId,
+          customerEmail: customerEmail,
+          amount: totals.total,
+          subtotal: totals.subtotal,
+          tax: totals.tax,
+          products: enhancedProducts, // Store enhanced products with accepted offers
+          shippingAddress: shippingAddress,
+          status: 'pending',
+          paymentIntentId: null,
+          createdAt: new Date(),
+          paidAt: null,
+        };
+
+        await db.collection('StripePaymentInfo').insertOne(pendingPayment);
+        console.log("✅ Payment record saved to StripePaymentInfo collection");
+      } catch (dbError) {
+        console.error("⚠️ Error saving payment record:", dbError.message);
+      }
+    }
+
+    console.log("=== STRIPE CHECKOUT REQUEST SUCCESS ===");
+    
+    res.json({ 
+      success: true,
+      url: session.url,
+      sessionId: session.id,
+      calculatedTotals: totals
+    });
+
+  } catch (error) {
+    console.error("=== STRIPE CHECKOUT REQUEST FAILED ===");
+    console.error("❌ Error creating checkout session:");
+    console.error("Error message:", error.message);
+    
+    res.status(500).json({ 
+      success: false,
+      error: error.message
+    });
+  }
+});
   return router;
 }

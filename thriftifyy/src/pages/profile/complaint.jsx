@@ -204,12 +204,7 @@ export function UserComplaintPage() {
       <div className="max-w-6xl mx-auto px-4">
         {/* Header */}
         <div className="text-center mb-12">
-          <div className="inline-flex items-center gap-3 bg-white/80 backdrop-blur-sm rounded-2xl px-6 py-3 border border-blue-100/50 shadow-sm mb-6">
-            <UserIcon className="text-blue-600" size={20} />
-            <span className="text-gray-700">
-              Welcome, <span className="font-semibold text-gray-900">{currentUser}</span>
-            </span>
-          </div>
+          
           <h1 className="text-4xl font-bold bg-gradient-to-r from-gray-900 to-blue-800 bg-clip-text text-transparent mb-4">
             Support Center
           </h1>
@@ -220,7 +215,7 @@ export function UserComplaintPage() {
 
         {/* Quick Stats */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
-          {stats.map((stat, index) => (
+          {stats.map((stat) => (
             <div 
               key={stat.label}
               className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 border border-gray-100/50 shadow-sm hover:shadow-md transition-all duration-300 hover:scale-[1.02]"

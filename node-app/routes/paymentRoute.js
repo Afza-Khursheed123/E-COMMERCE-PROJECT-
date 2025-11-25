@@ -2,6 +2,46 @@ import express from "express";
 const router = express.Router();
 
 export default function (db) {
+  // ✅ 0. POST — Create a new payment record
+  router.post("/", async (req, res) => {
+    try {
+      const { orderId, status, totalAmount, paymentMethod, customerEmail, productName, buyerName, sellerName, price } = req.body;
+
+      if (!orderId) {
+        return res.status(400).json({ error: "Order ID is required" });
+      }
+
+      const paymentData = {
+        orderId: orderId,
+        status: status || "Pending",
+        totalAmount: totalAmount || 0,
+        paymentMethod: paymentMethod || "cod",
+        customerEmail: customerEmail || "unknown@example.com",
+        productName: productName || "Product",
+        buyerName: buyerName || "Customer",
+        sellerName: sellerName || "Seller",
+        price: price || totalAmount || 0,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+
+      console.log("💰 Creating payment record:", paymentData);
+
+      const result = await db.collection("Payments").insertOne(paymentData);
+      
+      console.log("✅ Payment record created:", result.insertedId);
+
+      res.status(201).json({
+        message: "✅ Payment record created successfully",
+        paymentId: result.insertedId,
+        payment: paymentData
+      });
+    } catch (err) {
+      console.error("❌ Error creating payment record:", err);
+      res.status(500).json({ error: "Internal server error", message: err.message });
+    }
+  });
+
   // ✅ 1. GET — Fetch all payments with order details
   router.get("/", async (req, res) => {
     try {
@@ -43,6 +83,10 @@ export default function (db) {
       });
     }
   });
+
+
+
+  
 
   // ✅ 2. PATCH — Update payment status (not order status)
   router.patch("/:id", async (req, res) => {
@@ -106,6 +150,105 @@ export default function (db) {
       res.status(500).json({ error: "Internal server error" });
     }
   });
+
+
+
+  // In product.js - Add this new route for accepting bids
+router.post("/:id/acceptBid", async (req, res) => {
+  console.log("🎯 POST /:id/acceptBid triggered:", req.params.id);
+
+  try {
+    const { id } = req.params;
+    const { bidId, bidderId, acceptedAmount } = req.body;
+
+    if (!id || typeof id !== "string") {
+      return res.status(400).json({ message: "Invalid product ID format" });
+    }
+
+    if (!bidId || !bidderId || !acceptedAmount) {
+      return res.status(400).json({ 
+        message: "Missing required fields: bidId, bidderId, acceptedAmount" 
+      });
+    }
+
+    // Find the product
+    const product = await products.findOne({ _id: id });
+    if (!product) return res.status(404).json({ message: "Product not found" });
+
+    // Update the bid status to accepted
+    await bids.updateOne(
+      { _id: bidId },
+      { 
+        $set: { 
+          bidStatus: "accepted",
+          updatedAt: new Date().toISOString()
+        } 
+      }
+    );
+
+    // Update product's activeBids to mark this bid as accepted
+    const updatedActiveBids = (product.activeBids || []).map(bid => {
+      if (bid.bidId === bidId) {
+        return { ...bid, bidStatus: "accepted" };
+      }
+      // Reject all other bids for this product
+      if (bid.bidId !== bidId && bid.bidStatus === "pending") {
+        return { ...bid, bidStatus: "rejected" };
+      }
+      return bid;
+    });
+
+    // Store accepted offer information for this specific user
+    const acceptedOffer = {
+      bidderId: String(bidderId),
+      acceptedAmount: parseFloat(acceptedAmount),
+      acceptedAt: new Date().toISOString(),
+      bidId: bidId
+    };
+
+    // Update product with accepted bid status and store accepted offer
+    await products.updateOne(
+      { _id: id },
+      {
+        $set: {
+          activeBids: updatedActiveBids,
+          acceptedOffer: acceptedOffer, // Store the accepted offer
+          isAvailable: false, // Mark as sold
+          soldTo: bidderId,
+          soldPrice: parseFloat(acceptedAmount),
+          soldAt: new Date().toISOString()
+        }
+      }
+    );
+
+    // Create notification for the bidder
+    const bidderNotification = {
+      userId: bidderId,
+      type: "bid_accepted",
+      title: "🎉 Offer Accepted!",
+      message: `Your offer of $${acceptedAmount} for "${product.name}" has been accepted! You can now purchase it at this price.`,
+      relatedProductId: id,
+      relatedBidId: bidId,
+      productName: product.name,
+      bidAmount: parseFloat(acceptedAmount),
+      status: "ACCEPTED",
+      isRead: false,
+      createdAt: new Date().toISOString(),
+    };
+
+    await notifications.insertOne(bidderNotification);
+
+    console.log(`✅ Bid ${bidId} accepted for user ${bidderId} at $${acceptedAmount}`);
+
+    res.status(200).json({
+      message: "✅ Offer accepted successfully!",
+      acceptedOffer: acceptedOffer
+    });
+  } catch (err) {
+    console.error("Error accepting bid:", err);
+    res.status(500).json({ message: "Server error", error: err.message });
+  }
+});
 
   return router;
 }

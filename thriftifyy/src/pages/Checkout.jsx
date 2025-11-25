@@ -62,11 +62,23 @@ const CheckoutPage = () => {
         }
     }, [location, navigate, searchParams]);
 
-    // ✅ FIXED: Create order with proper product IDs
-    const createOrder = async (sessionData) => {
+    // ✅ FIXED: Create order with proper product IDs and payment method
+    const createOrder = async (paymentMethod = "stripe", sessionData = {}) => {
         try {
+            // Ensure user data is available
+            if (!user || !user._id && !user.id) {
+                throw new Error('User information is missing');
+            }
+
+            const userId = user._id || user.id;
+            const userEmail = user.email || 'unknown@example.com';
+            const buyerName = user.name || user.username || 'Customer';
+
+            // Combine product names for display
+            const displayProductName = products.length === 1 ? products[0].productName : `Multiple Products (${products.length})`;
+
             const orderData = {
-                userId: user._id || user.id,
+                userId: userId,
                 // ✅ Store product IDs as array, not as "multiple"
                 productId: products.map(product => product.productId),
                 products: products.map(product => ({
@@ -76,15 +88,22 @@ const CheckoutPage = () => {
                     quantity: product.quantity,
                     image: product.image
                 })),
-                status: "Processing",
+                // ✅ Set status based on payment method: 'pending' for COD, 'Completed' for stripe
+                status: paymentMethod === "stripe" ? "Completed" : "pending",
                 totalAmount: calculateTotal(),
-                paymentMethod: "stripe",
+                paymentMethod: paymentMethod,
                 shippingAddress: `${shippingAddress.fullName}, ${shippingAddress.address}, ${shippingAddress.city}, ${shippingAddress.state}, ${shippingAddress.zipCode}, ${shippingAddress.country}`,
-                customerEmail: user.email,
+                customerEmail: userEmail,
+                buyerName: buyerName,
+                productName: displayProductName,
+                price: calculateTotal(),
+                sellerName: 'Thriftify',
                 subtotal: calculateSubtotal(),
                 tax: calculateTax(),
-                sessionId: sessionData.id,
-                paymentIntentId: sessionData.payment_intent
+                ...(paymentMethod === "stripe" && {
+                  sessionId: sessionData.id,
+                  paymentIntentId: sessionData.payment_intent
+                })
             };
 
             console.log("📦 Creating order with data:", orderData);
@@ -94,6 +113,7 @@ const CheckoutPage = () => {
             return response.data;
         } catch (error) {
             console.error("❌ Order creation error:", error);
+            console.error("Error response:", error.response?.data);
             throw error;
         }
     };
@@ -153,13 +173,17 @@ const CheckoutPage = () => {
                 const itemsWithDetails = await Promise.all(
                     res.data.items.map(async (item) => {
                         try {
-                            const productRes = await api.get(`/products/${item.productId}`);
+                            const productRes = await api.get(`/products/${item.productId}?userId=${userId}`);
                             return {
                                 productId: item.productId,
                                 productName: productRes.data.name,
-                                price: productRes.data.price,
+                                // Prefer cart item's stored price (server-updated finalPrice) over product.price
+                                price: (item.price !== undefined && item.price !== null) ? item.price : productRes.data.price,
                                 quantity: item.quantity,
-                                image: productRes.data.images?.[0] || '/placeholder.jpg'
+                                image: productRes.data.images?.[0] || '/placeholder.jpg',
+                                // ✅ Store seller information
+                                sellerName: productRes.data.userName || 'Unknown Seller',
+                                sellerId: productRes.data.userId
                             };
                         } catch (error) {
                             console.error(`Error fetching product ${item.productId}:`, error);
@@ -168,7 +192,9 @@ const CheckoutPage = () => {
                                 productName: `Product ${item.productId}`,
                                 price: item.price || 0,
                                 quantity: item.quantity,
-                                image: '/placeholder.jpg'
+                                image: '/placeholder.jpg',
+                                sellerName: 'Unknown Seller',
+                                sellerId: null
                             };
                         }
                     })
@@ -195,6 +221,86 @@ const CheckoutPage = () => {
 
     const calculateTotal = () => {
         return calculateSubtotal() + calculateTax();
+    };
+
+    const handleCashOnDelivery = async () => {
+        if (!user) return;
+
+        // Validate form
+        if (!shippingAddress.fullName || !shippingAddress.address || !shippingAddress.city || 
+            !shippingAddress.state || !shippingAddress.zipCode) {
+            alert('Please fill in all shipping details');
+            return;
+        }
+
+        if (products.length === 0) {
+            alert('No products to checkout');
+            return;
+        }
+
+        setProcessing(true);
+        try {
+            // Calculate proper totals
+            const subtotal = calculateSubtotal();
+            const tax = calculateTax();
+            const total = calculateTotal();
+
+            console.log("💰 COD Order - Calculated totals:", { subtotal, tax, total });
+            console.log("📦 Products to checkout:", products);
+
+            // Create order with cash on delivery payment method (status will be set to "pending")
+            const orderResult = await createOrder("cash_on_delivery");
+            console.log("✅ COD Order created successfully with pending status", orderResult);
+
+            const orderId = orderResult?.data?._id || orderResult?._id || orderResult?.insertedId || orderResult?.orderId;
+
+            // ✅ NEW: Create payment document for COD
+            try {
+                // Get seller name from first product (usually single seller per order)
+                const sellerName = products[0]?.sellerName || 'Unknown Seller';
+
+                const paymentData = {
+                    orderId: orderId,
+                    status: "Pending",
+                    totalAmount: total,
+                    paymentMethod: "cash_on_delivery",
+                    customerEmail: user.email || 'unknown@example.com',
+                    productName: products.length === 1 ? products[0].productName : `Multiple Products (${products.length})`,
+                    buyerName: user.name || user.username || 'Customer',
+                    sellerName: sellerName,
+                    price: total
+                };
+
+                console.log("💳 Creating payment record for COD:", paymentData);
+                
+                // POST to backend payments route (mounted at /admin/payment)
+                const paymentResponse = await api.post('/admin/payment', paymentData);
+                console.log("✅ Payment record created successfully:", paymentResponse.data);
+            } catch (paymentError) {
+                console.error("⚠️ Error creating payment record:", paymentError);
+                console.warn("Order was created successfully, but payment record creation failed. This can be recovered manually.");
+            }
+
+            // Store order details for success message
+            setOrderDetails(orderResult.data || orderResult);
+            setPaymentMessage(`Your order has been placed successfully! You will pay $${total.toFixed(2)} when your package arrives. Order ID: ${orderId || 'Pending'}`);
+            
+            // Show success message
+            setPaymentStatus('cod_success');
+            
+            // Clear processing state
+            setProcessing(false);
+            
+            // DO NOT auto-redirect for COD - let user see success message
+            // Clear cart after user closes success message
+            localStorage.removeItem('cart');
+
+        } catch (error) {
+            console.error('Cash on Delivery checkout error:', error);
+            console.error('Error details:', error.response?.data || error.message);
+            alert('Failed to place order: ' + (error.response?.data?.message || error.message || 'Please try again.'));
+            setProcessing(false);
+        }
     };
 
     const handleStripeCheckout = async () => {
@@ -236,10 +342,10 @@ const CheckoutPage = () => {
             });
 
             if (response.data.url) {
-                // ✅ FIXED: Create pending order before redirecting to Stripe
+                // ✅ FIXED: Create order with stripe payment method
                 try {
-                    await createOrder(response.data.session);
-                    console.log("✅ Pending order created successfully");
+                    await createOrder("stripe", response.data.session);
+                    console.log("✅ Order created for stripe payment");
                 } catch (orderError) {
                     console.error("⚠️ Order creation failed, but continuing with payment:", orderError);
                     // Continue with payment even if order creation fails
@@ -272,6 +378,7 @@ const CheckoutPage = () => {
         const displaySubtotal = orderDetails?.subtotal || calculateSubtotal();
         const displayTax = orderDetails?.tax || calculateTax();
         const displayTotal = orderDetails?.totalAmount || calculateTotal();
+        const isCOD = paymentStatus === 'cod_success';
 
         return (
             <Container fluid style={{ background: colors.light, minHeight: '100vh', padding: '2rem 0' }}>
@@ -300,7 +407,7 @@ const CheckoutPage = () => {
                                 </div>
                                 
                                 <h2 style={{ color: colors.primary, marginBottom: '20px', textAlign: 'center' }}>
-                                    Payment Successful!
+                                    {isCOD ? 'Order Placed Successfully!' : 'Payment Successful!'}
                                 </h2>
                                 
                                 <p style={{ fontSize: '16px', lineHeight: '1.6', marginBottom: '30px', color: colors.bg, textAlign: 'center' }}>
@@ -309,7 +416,7 @@ const CheckoutPage = () => {
 
                                 {/* Order Details */}
                                 <div style={{ 
-                                    backgroundColor: '#f8f9fa', 
+                                    backgroundColor: '#19535F', 
                                     padding: '25px', 
                                     borderRadius: '10px',
                                     marginBottom: '30px'
@@ -487,7 +594,7 @@ const CheckoutPage = () => {
     );
 
     // Show payment status messages if applicable
-    if (paymentStatus === 'success') {
+    if (paymentStatus === 'success' || paymentStatus === 'cod_success') {
         return <PaymentSuccessMessage />;
     }
 
@@ -640,30 +747,103 @@ const CheckoutPage = () => {
                                 <h4 className="mb-0">Payment Method</h4>
                             </Card.Header>
                             <Card.Body>
-                                <div className="text-center">
-                                    <div style={{ 
-                                        backgroundColor: '#6772e5', 
-                                        color: 'white', 
-                                        padding: '20px', 
-                                        borderRadius: '10px',
-                                        marginBottom: '20px'
-                                    }}>
-                                        <i className="fa-brands fa-stripe fa-3x mb-3"></i>
-                                        <h5>Secure Payment with Stripe</h5>
-                                        <p className="mb-0">You'll be redirected to Stripe to complete your payment securely</p>
-                                    </div>
-                                    
-                                    <div style={{ 
-                                        backgroundColor: '#f8f9fa', 
-                                        padding: '15px', 
-                                        borderRadius: '8px',
-                                        border: '1px solid #dee2e6'
-                                    }}>
-                                        <small className="text-muted">
-                                            <i className="fa-solid fa-lock me-2"></i>
-                                            Your payment information is encrypted and secure. We never store your card details.
-                                        </small>
-                                    </div>
+                                <Row className="g-3">
+                                    {/* Cash on Delivery Option */}
+                                    <Col md={6}>
+                                        <div style={{ 
+                                            backgroundColor: '#f0f3f5', 
+                                            color: colors.bg,
+                                            padding: '20px', 
+                                            borderRadius: '10px',
+                                            border: '2px solid #dee2e6',
+                                            cursor: 'pointer',
+                                            transition: 'all 0.3s ease',
+                                            textAlign: 'center'
+                                        }}
+                                        onMouseOver={(e) => {
+                                            e.currentTarget.style.borderColor = colors.accent;
+                                            e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.1)';
+                                        }}
+                                        onMouseOut={(e) => {
+                                            e.currentTarget.style.borderColor = '#dee2e6';
+                                            e.currentTarget.style.boxShadow = 'none';
+                                        }}
+                                        >
+                                            <i className="fa-solid fa-money-bill-wave fa-2x mb-3" style={{ color: colors.accent }}></i>
+                                            <h6 style={{ color: colors.bg, fontWeight: '600', marginBottom: '10px' }}>Cash on Delivery</h6>
+                                            <p style={{ fontSize: '0.85rem', color: colors.bg, opacity: 0.8, marginBottom: '15px' }}>
+                                                Pay when you receive your order
+                                            </p>
+                                            <Button
+                                                onClick={handleCashOnDelivery}
+                                                disabled={processing}
+                                                style={{
+                                                    backgroundColor: colors.accent,
+                                                    border: 'none',
+                                                    color: colors.bg,
+                                                    width: '100%',
+                                                    fontWeight: '600',
+                                                    padding: '10px'
+                                                }}
+                                            >
+                                                {processing ? 'Processing...' : 'Choose COD'}
+                                            </Button>
+                                        </div>
+                                    </Col>
+
+                                    {/* Pay Online Option */}
+                                    <Col md={6}>
+                                        <div style={{ 
+                                            backgroundColor: '#e7f5ff', 
+                                            color: colors.bg,
+                                            padding: '20px', 
+                                            borderRadius: '10px',
+                                            border: '2px solid #6772e5',
+                                            cursor: 'pointer',
+                                            transition: 'all 0.3s ease',
+                                            textAlign: 'center'
+                                        }}
+                                        onMouseOver={(e) => {
+                                            e.currentTarget.style.boxShadow = '0 4px 12px rgba(103, 114, 229, 0.2)';
+                                        }}
+                                        onMouseOut={(e) => {
+                                            e.currentTarget.style.boxShadow = 'none';
+                                        }}
+                                        >
+                                            <i className="fa-brands fa-stripe fa-2x mb-3" style={{ color: '#6772e5' }}></i>
+                                            <h6 style={{ color: colors.bg, fontWeight: '600', marginBottom: '10px' }}>Pay Online</h6>
+                                            <p style={{ fontSize: '0.85rem', color: colors.bg, opacity: 0.8, marginBottom: '15px' }}>
+                                                Secure payment via Stripe
+                                            </p>
+                                            <Button
+                                                onClick={handleStripeCheckout}
+                                                disabled={processing}
+                                                style={{
+                                                    backgroundColor: '#6772e5',
+                                                    border: 'none',
+                                                    color: 'white',
+                                                    width: '100%',
+                                                    fontWeight: '600',
+                                                    padding: '10px'
+                                                }}
+                                            >
+                                                {processing ? 'Processing...' : 'Pay with Card'}
+                                            </Button>
+                                        </div>
+                                    </Col>
+                                </Row>
+
+                                <div style={{ 
+                                    backgroundColor: '#f8f9fa', 
+                                    padding: '15px', 
+                                    borderRadius: '8px',
+                                    border: '1px solid #dee2e6',
+                                    marginTop: '20px'
+                                }}>
+                                    <small className="text-muted">
+                                        <i className="fa-solid fa-lock me-2"></i>
+                                        All transactions are secure and encrypted.
+                                    </small>
                                 </div>
                             </Card.Body>
                         </Card>

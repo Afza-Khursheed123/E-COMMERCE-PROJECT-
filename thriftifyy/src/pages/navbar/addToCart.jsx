@@ -52,27 +52,35 @@ function Cart({ name, ...props }) {
             setLoading(true);
             const res = await api.get(`/cart/user/${currentUser._id || currentUser.id}`);
             console.log("🛒 Cart data:", res.data);
-            
+
             const itemsWithDetails = await Promise.all(
                 res.data.items.map(async (item) => {
                     try {
-                        const productRes = await api.get(`/products/${item.productId}`);
+                        // Include userId so product API can return user-specific fields (acceptedOffer/userAcceptedOffer)
+                        const productRes = await api.get(`/products/${item.productId}?userId=${currentUser._id || currentUser.id}`);
+
+                        // Prefer the price stored in the cart item (server-updated finalPrice) to avoid stale product.price
+                        const productDetails = { ...productRes.data };
+                        if (item.price !== undefined && item.price !== null) {
+                            productDetails.price = item.price;
+                        }
+
                         return {
                             ...item,
-                            productDetails: productRes.data
+                            productDetails
                         };
                     } catch (error) {
                         console.error("Error fetching product details:", error);
                         return {
                             ...item,
-                            productDetails: { name: 'Product not available', price: 0, isAvailable: false }
+                            productDetails: { name: 'Product not available', price: item.price || 0, isAvailable: false }
                         };
                     }
                 })
             );
-            
+
             setCartItems(itemsWithDetails);
-            // Calculate total after setting cart items
+            // Calculate total after setting cart items (use cart item price if present)
             calculateTotal(itemsWithDetails, selectedItems);
         } catch (err) {
             console.error("❌ Cart fetch error:", err);
@@ -87,7 +95,9 @@ function Cart({ name, ...props }) {
     const calculateTotal = (items = cartItems, selected = selectedItems) => {
         const selectedTotal = items.reduce((acc, item) => {
             if (selected.has(item.productId)) {
-                return acc + (item.productDetails.price * item.quantity);
+                // Prefer explicit cart item price (server-side finalPrice) over fetched productDetails
+                const price = (item.price !== undefined && item.price !== null) ? item.price : (item.productDetails.price || 0);
+                return acc + (price * item.quantity);
             }
             return acc;
         }, 0);
