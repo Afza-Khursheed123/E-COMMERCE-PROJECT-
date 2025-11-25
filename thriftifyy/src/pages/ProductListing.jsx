@@ -9,7 +9,6 @@ const ProductListingPage = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [categories, setCategories] = useState([]);
-  const [categorySearch, setCategorySearch] = useState('');
   const [formData, setFormData] = useState({
     name: "",
     description: "",
@@ -259,21 +258,7 @@ const ProductListingPage = () => {
                         </Form.Select>
                       </Form.Group>
 
-                      {/* Product search input - positioned same as categories page */}
-                      <div style={{ marginTop: '12px' }}>
-                        <input
-                          type="text"
-                          value={categorySearch}
-                          onChange={(e) => setCategorySearch(e.target.value)}
-                          placeholder="Search products by name..."
-                          style={{
-                            width: '100%',
-                            padding: '10px 14px',
-                            borderRadius: '10px',
-                            border: '1px solid rgba(0,0,0,0.08)'
-                          }}
-                        />
-                      </div>
+                    
                     </Col>
                   </Row>
 

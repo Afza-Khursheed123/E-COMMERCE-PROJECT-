@@ -395,7 +395,7 @@ const CheckoutPage = () => {
                                     width: '80px', 
                                     height: '80px', 
                                     borderRadius: '50%', 
-                                    backgroundColor: '#28a745',
+                                    backgroundColor: '#19535F',
                                     color: 'white',
                                     display: 'flex',
                                     alignItems: 'center',
@@ -416,7 +416,7 @@ const CheckoutPage = () => {
 
                                 {/* Order Details */}
                                 <div style={{ 
-                                    backgroundColor: '#19535F', 
+                                    backgroundColor: '#D7C9AA', 
                                     padding: '25px', 
                                     borderRadius: '10px',
                                     marginBottom: '30px'

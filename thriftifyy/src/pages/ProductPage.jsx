@@ -35,6 +35,8 @@ const ProductPage = () => {
 
   // User state
   const [user, setUser] = useState(null);
+  // Seller info fallback (fetch if product doesn't include populated user)
+  const [seller, setSeller] = useState(null);
 
   // Using your exact color theme from provided components
   const colors = {
@@ -64,6 +66,21 @@ const ProductPage = () => {
       const productRes = await api.get(`/products/${id}${query}`);
       const productData = productRes.data;
       setProduct(productData);
+      // If backend didn't populate the `user` object, try fetching seller by id
+      const sellerId = productData.user?._id || productData.userId || productData.sellerId;
+      if (productData.user) {
+        setSeller(productData.user);
+      } else if (sellerId) {
+        try {
+          const sellerRes = await api.get(`/users/${sellerId}`);
+          // backend may return seller in .data or .data.user
+          const sellerData = sellerRes.data?.user || sellerRes.data;
+          setSeller(sellerData);
+        } catch (e) {
+          console.warn('Could not fetch seller info:', e);
+          setSeller(null);
+        }
+      }
       
       // Set initial selected image
       const initialImage = productData.images?.[0] || "/placeholder.jpg";
@@ -389,16 +406,16 @@ const ProductPage = () => {
 
   const getSellerInfo = () => {
     if (!product) return {};
-    
-    // Try to get rating from product.user first, then fallback to product properties
-    const userRating = product.user?.rating || product.userRating || product.sellerRating || "No rating";
-    
+    // Prefer explicit `seller` state (populated or fetched). Fallback to product.user or fields on product.
+    const source = seller || product.user || {};
+    const userRating = source.rating ?? product.userRating ?? product.sellerRating ?? "No rating";
+
     return {
-      name: product.user?.name || product.userName || product.sellerName || "Unknown User",
-      rating: typeof userRating === 'number' ? userRating.toFixed(1) : userRating,
-      location: product.user?.location || product.userLocation || product.sellerLocation || "Location not specified",
-      sales: product.successfulSales || "0",
-      profileImage: product.user?.profileImage || null
+      name: source.name || product.userName || product.sellerName || "Unknown User",
+      rating: (typeof userRating === 'number' || !isNaN(parseFloat(userRating))) ? Number(userRating).toFixed(1) : userRating,
+      location: source.location || product.userLocation || product.sellerLocation || "Location not specified",
+      sales: source.successfulSales || product.successfulSales || "0",
+      profileImage: source.profileImage || product.user?.profileImage || null
     };
   };
 
