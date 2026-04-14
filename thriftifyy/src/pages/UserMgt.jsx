@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Search, MoreVertical, UserCheck, UserX, Plus, Users, Shield, Activity } from "lucide-react";
+import ErrorNotification from "../components/ErrorNotification";
 
 export function UserMgt() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -16,6 +17,8 @@ export function UserMgt() {
     status: "Active",
     phone: "",
   });
+  const [error, setError] = useState(null);
+  const [success, setSuccess] = useState(null);
 
   // ✅ Fetch users from backend
   useEffect(() => {
@@ -38,14 +41,16 @@ export function UserMgt() {
           }))
         );
       })
-      .catch((err) => console.error(err))
+      .catch((err) => {
+        setError("Failed to fetch users. Please try again.");
+      })
       .finally(() => setIsLoading(false));
   }, []);
 
   // ✅ Add new user (backend + frontend)
   const addUser = async () => {
     if (!newUser.name || !newUser.email || !newUser.phone) {
-      alert("Please fill in all fields.");
+      setError("Please fill in all fields.");
       return;
     }
 
@@ -78,13 +83,12 @@ export function UserMgt() {
           status: "Active",
           phone: "",
         });
-        setShowForm(false);
+        setSuccess("User added successfully!");
       } else {
-        alert("Failed to add user.");
+        setError("Failed to add user. Please try again.");
       }
     } catch (error) {
-      console.error("Add user error:", error);
-      alert("Error adding user.");
+      setError("Error adding user. Please try again.");
     }
   };
 
@@ -106,11 +110,10 @@ export function UserMgt() {
           )
         );
       } else {
-        alert("Failed to update status.");
+        setError("Failed to update user status. Please try again.");
       }
     } catch (error) {
-      console.error("Toggle status error:", error);
-      alert("Error updating status.");
+      setError("Error updating user status. Please try again.");
     }
     setMenuOpen(null);
   };
@@ -156,6 +159,25 @@ export function UserMgt() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-6">
+      {/* Error and Success Notifications */}
+      <div style={{ position: 'sticky', top: 0, zIndex: 1000, backgroundColor: '#f8f9fa', padding: '0.5rem', marginBottom: '1rem', borderRadius: '8px' }}>
+        {error && (
+          <ErrorNotification 
+            message={error} 
+            type="error" 
+            onClose={() => setError(null)}
+          />
+        )}
+        {success && (
+          <ErrorNotification 
+            message={success} 
+            type="success" 
+            onClose={() => setSuccess(null)}
+            autoClose={true}
+          />
+        )}
+      </div>
+
       {/* Advanced Animated Background */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-1/4 -left-10 w-72 h-72 bg-[#19535F] rounded-full mix-blend-multiply filter blur-3xl opacity-5 animate-float-slow"></div>

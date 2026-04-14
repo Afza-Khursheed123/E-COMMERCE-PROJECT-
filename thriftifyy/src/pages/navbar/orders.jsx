@@ -17,7 +17,7 @@ function OrdersDrawer({ name, ...props }) {
     const handleClose = () => setShow(false);
     const handleShow = () => {
         if (!currentUser) {
-            alert("⚠️ Please log in to view your orders.");
+            setError("Please log in to view your orders.");
             return;
         }
         setShow(true);

@@ -18,8 +18,8 @@ function NotificationDrawer({ name, ...props }) {
         {
             _id: 'mock-1',
             type: 'bid',
-            title: 'New Offer Received',
-            message: 'Someone made an offer on your product',
+            title: 'New Bid Received',
+            message: 'Someone made a bid on your product',
             createdAt: new Date().toISOString(),
             read: false,
             bidAmount: 45
@@ -44,7 +44,8 @@ function NotificationDrawer({ name, ...props }) {
     
     const handleShow = () => {
         if (!currentUser) {
-            alert("⚠️ Please log in to view your notifications.");
+            // Since this is a notification drawer, set notification state or just return
+            console.warn("User tried to view notifications without logging in");
             return;
         }
         setShow(true);
@@ -126,7 +127,7 @@ function NotificationDrawer({ name, ...props }) {
                 setNotifications(prev => prev.filter(notif => notif._id !== id));
             } else {
                 console.error('Failed to delete notification', response.data);
-                alert('Failed to delete notification');
+                setError('Failed to delete notification');
             }
         } catch (err) {
             console.error('Error deleting notification:', err);

@@ -10,6 +10,7 @@ import Form from 'react-bootstrap/Form';
 import ListGroup from 'react-bootstrap/ListGroup';
 import User from '../../../assets/User.jpg';
 import './profile.css'
+import ErrorNotification from '../../components/ErrorNotification';
 
 function Profile() {
     const [user, setUser] = useState({
@@ -20,6 +21,7 @@ function Profile() {
     });
 
     const [isEditing, setIsEditing] = useState(false);
+    const [success, setSuccess] = useState(null);
 
     const handleChange = (e) => {
         setUser({ ...user, [e.target.name]: e.target.value });
@@ -27,7 +29,7 @@ function Profile() {
 
     const handleSave = () => {
         setIsEditing(false);
-        alert("Profile updated successfully!");
+        setSuccess("Profile updated successfully!");
     };
 
     const boughtOrders = [
@@ -48,6 +50,11 @@ function Profile() {
 
     return (
         <div style={{ padding: '3%' }}>
+            {/* Notification Container */}
+            <div style={{ position: 'sticky', top: 0, zIndex: 1000, marginBottom: '1rem' }}>
+                {success && <ErrorNotification message={success} type="success" autoClose={true} onClose={() => setSuccess(null)} />}
+            </div>
+
             <h1
                 style={{
                     color: colors.badge,

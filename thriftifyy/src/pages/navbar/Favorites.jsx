@@ -4,12 +4,15 @@ import Offcanvas from 'react-bootstrap/Offcanvas';
 import Badge from 'react-bootstrap/Badge';
 import colors from '../../theme';
 import api from '../../api';
+import ErrorNotification from '../../components/ErrorNotification';
 import { useNavigate } from 'react-router-dom';
 
 function FavoritesDrawer({ name, ...props }) {
     const [show, setShow] = useState(false);
     const [favorites, setFavorites] = useState([]);
     const [loading, setLoading] = useState(false);
+    const [error, setError] = useState(null);
+    const [success, setSuccess] = useState(null);
     const navigate = useNavigate();
 
     // ✅ Get current user
@@ -18,7 +21,7 @@ function FavoritesDrawer({ name, ...props }) {
     const handleClose = () => setShow(false);
     const handleShow = () => {
         if (!currentUser) {
-            alert("⚠️ Please log in to view your favorites.");
+            setError("Please log in to view your favorites.");
             return;
         }
         setShow(true);
@@ -59,8 +62,7 @@ function FavoritesDrawer({ name, ...props }) {
             
             setFavorites(favoritesWithDetails);
         } catch (err) {
-            console.error("❌ Favorites fetch error:", err);
-            setFavorites([]);
+            setError("Failed to load favorites. Please try again.");
         } finally {
             setLoading(false);
         }
@@ -79,15 +81,14 @@ function FavoritesDrawer({ name, ...props }) {
             // Remove from local state
             setFavorites(prev => prev.filter(item => item.productId !== productId));
         } catch (error) {
-            console.error("Remove from favorites error:", error);
-            alert("❌ Failed to remove from favorites");
+            setError("Failed to remove from favorites.");
         }
     };
 
     // ✅ Add to cart from favorites
     const addToCartFromFavorites = async (productId, productName) => {
         if (!currentUser) {
-            alert("⚠️ Please log in to add items to cart.");
+            setError("Please log in to add items to cart.");
             return;
         }
 
@@ -98,10 +99,9 @@ function FavoritesDrawer({ name, ...props }) {
                 quantity: 1,
             });
             
-            alert(`✅ ${productName} added to cart!`);
+            setSuccess(`${productName} added to cart!`);
         } catch (error) {
-            console.error("Add to cart error:", error);
-            alert("❌ Failed to add to cart");
+            setError("Failed to add to cart. Please try again.");
         }
     };
 
@@ -166,14 +166,38 @@ function FavoritesDrawer({ name, ...props }) {
                 placement="end"
                 style={{ width: '380px' }}
             >
-                {/* Drawer Header */}
+                {/* Drawer Header with Notifications */}
                 <Offcanvas.Header
                     closeButton
                     style={{
                         backgroundColor: colors.bg,
                         color: colors.text,
+                        flexDirection: 'column',
+                        alignItems: 'flex-start',
+                        paddingTop: '1rem'
                     }}
                 >
+                    {error && (
+                        <div style={{ width: '100%', marginBottom: '10px' }}>
+                            <ErrorNotification 
+                                message={error} 
+                                type="error" 
+                                onClose={() => setError(null)}
+                                showIcon={true}
+                            />
+                        </div>
+                    )}
+                    {success && (
+                        <div style={{ width: '100%', marginBottom: '10px' }}>
+                            <ErrorNotification 
+                                message={success} 
+                                type="success" 
+                                onClose={() => setSuccess(null)}
+                                autoClose={true}
+                                showIcon={true}
+                            />
+                        </div>
+                    )}
                     <Offcanvas.Title>
                         <i className="fa-regular fa-heart me-2"></i>
                         Your Favorites {itemCount > 0 && `(${itemCount})`}

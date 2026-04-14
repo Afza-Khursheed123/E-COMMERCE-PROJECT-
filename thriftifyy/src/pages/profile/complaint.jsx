@@ -12,6 +12,7 @@ import {
   FilterIcon,
   XIcon,
 } from "lucide-react";
+import ErrorNotification from "../../components/ErrorNotification";
 
 export function UserComplaintPage() {
   const [showForm, setShowForm] = useState(false);
@@ -23,6 +24,8 @@ export function UserComplaintPage() {
 
   // In a real app, this would come from authentication
   const [currentUser] = useState("David Lee");
+  const [error, setError] = useState(null);
+  const [success, setSuccess] = useState(null);
 
   const [newComplaint, setNewComplaint] = useState({
     user: currentUser,
@@ -85,11 +88,10 @@ export function UserComplaintPage() {
           priority: "Low",
         });
       } else {
-        alert("Failed to submit complaint: " + data.message);
+        setError("Failed to submit complaint: " + data.message);
       }
     } catch (err) {
-      console.error("❌ Error submitting complaint:", err);
-      alert("Error submitting complaint. Please try again.");
+      setError("Error submitting complaint. Please try again.");
     } finally {
       setSubmitting(false);
     }
@@ -202,6 +204,25 @@ export function UserComplaintPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50/30 py-8">
       <div className="max-w-6xl mx-auto px-4">
+        {/* Error and Success Notifications */}
+        <div style={{ position: 'sticky', top: 0, zIndex: 1000, backgroundColor: '#f8fafc', padding: '0.5rem', marginBottom: '1.5rem', borderRadius: '8px' }}>
+          {error && (
+            <ErrorNotification 
+              message={error} 
+              type="error" 
+              onClose={() => setError(null)}
+            />
+          )}
+          {success && (
+            <ErrorNotification 
+              message={success} 
+              type="success" 
+              onClose={() => setSuccess(null)}
+              autoClose={true}
+            />
+          )}
+        </div>
+
         {/* Header */}
         <div className="text-center mb-12">
           

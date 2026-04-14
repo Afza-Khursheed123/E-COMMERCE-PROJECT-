@@ -2,6 +2,7 @@ import React, { useEffect, useState, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import api from "../api";
 import Loader from "../components/Loader";
+import ErrorNotification from "../components/ErrorNotification";
 import { Container, Row, Col, Card, Button, Accordion, Modal, Badge } from 'react-bootstrap';
 
 const ProductPage = () => {
@@ -10,10 +11,10 @@ const ProductPage = () => {
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
   const [selectedImage, setSelectedImage] = useState(null);
-  const [showOfferCard, setShowOfferCard] = useState(false);
-  const [offerAmount, setOfferAmount] = useState("");
-  const [userOffer, setUserOffer] = useState(null);
-  const [placingOffer, setPlacingOffer] = useState(false);
+  const [showBidCard, setShowBidCard] = useState(false);
+  const [bidAmount, setBidAmount] = useState("");
+  const [userBid, setUserBid] = useState(null);
+  const [placingBid, setPlacingBid] = useState(false);
   
   // Image modal state
   const [showImageModal, setShowImageModal] = useState(false);
@@ -37,6 +38,14 @@ const ProductPage = () => {
   const [user, setUser] = useState(null);
   // Seller info fallback (fetch if product doesn't include populated user)
   const [seller, setSeller] = useState(null);
+  // Error notification state
+  const [error, setError] = useState(null);
+  const [success, setSuccess] = useState(null);
+  
+  // ✅ NEW: Accept bid state
+  const [acceptingBid, setAcceptingBid] = useState(false);
+  const [invalidProductId, setInvalidProductId] = useState(false);
+  const [bidStatusNotificationShown, setBidStatusNotificationShown] = useState(false);  // ✅ Track if notification shown
 
   // Using your exact color theme from provided components
   const colors = {
@@ -59,12 +68,35 @@ const ProductPage = () => {
   // ✅ Fetch product details with cart and favorite status - UPDATED to handle owner bids viewing
   const fetchProduct = useCallback(async () => {
     try {
+      // ✅ VALIDATION: Check if product ID is valid first
+      if (!id || id.trim() === "") {
+        console.warn("⚠️ Invalid product ID:", id);
+        setInvalidProductId(true);
+        setLoading(false);
+        return;
+      }
+
+      setInvalidProductId(false);
       setLoading(true);
       const userId = user?._id || user?.id;
+      const userIdString = String(userId);
 
-      const query = userId ? `?userId=${encodeURIComponent(String(userId))}` : '';
+      // ✅ Add cache-buster timestamp to force fresh data
+      const timestamp = new Date().getTime();
+      const query = userId ? `?userId=${encodeURIComponent(userIdString)}&t=${timestamp}` : `?t=${timestamp}`;
+      
+      console.log(`🔄 Fetching product ${id} for user ${userId || 'guest'} at ${new Date().toLocaleTimeString()}`);
       const productRes = await api.get(`/products/${id}${query}`);
       const productData = productRes.data;
+      
+      console.log("✅ Product Data Received:", {
+        id: productData._id,
+        available: productData.isAvailable,
+        acceptedBid: productData.acceptedBid,
+        activeBids: productData.activeBids?.length || 0,
+        userIdCompare: userIdString
+      });
+      
       setProduct(productData);
       // If backend didn't populate the `user` object, try fetching seller by id
       const sellerId = productData.user?._id || productData.userId || productData.sellerId;
@@ -86,23 +118,47 @@ const ProductPage = () => {
       const initialImage = productData.images?.[0] || "/placeholder.jpg";
       setSelectedImage(initialImage);
 
-      // ✅ FIX: Properly set userOffer from activeBids - check if user is owner
-      const userOffers = productData.activeBids || [];
-      const currentUserOffer = userOffers.find(offer => 
-        offer.bidderId === (user?._id || user?.id)
+      // ✅ FIX: Properly set userBid from activeBids - check if user is owner
+      // ✅ CRITICAL: Ensure string comparison - bidderId is string from DB
+      const userBids = productData.activeBids || [];
+      console.log(`🔍 Searching for bid with bidderId: ${userIdString} in ${userBids.length} bids:`, userBids.map(b => ({ bidderId: b.bidderId, bidStatus: b.bidStatus, amount: b.amount })));
+      
+      const currentUserBid = userBids.find(bid => 
+        String(bid.bidderId) === userIdString
       );
       
-      // Only set userOffer if the user is NOT the owner (owners don't have their own offers)
-      const isOwner = (user?._id || user?.id) === productData.userId;
+      console.log(`🎯 Found user's bid:`, currentUserBid || "NOT FOUND");
+      
+      // Only set userBid if the user is NOT the owner (owners don't have their own bids)
+      const isOwner = userIdString === String(productData.userId);
       if (!isOwner) {
-        setUserOffer(currentUserOffer || null);
+        // ✅ Use API data if available
+        if (currentUserBid) {
+          setUserBid(currentUserBid);
+          // Update localStorage with fresh API data
+          localStorage.setItem(`bid_${id}`, JSON.stringify(currentUserBid));
+          console.log(`✅ Set userBid from API:`, `${currentUserBid.bidStatus} - ${currentUserBid.amount || currentUserBid.bidAmount}`);
+        } else {
+          // ✅ FALLBACK: If API doesn't return bid, try localStorage
+          const storedBid = localStorage.getItem(`bid_${id}`);
+          if (storedBid) {
+            try {
+              const parsedBid = JSON.parse(storedBid);
+              setUserBid(parsedBid);
+              console.log(`✅ Set userBid from localStorage (fallback):`, `${parsedBid.bidStatus} - ${parsedBid.amount || parsedBid.bidAmount}`);
+            } catch (e) {
+              setUserBid(null);
+              localStorage.removeItem(`bid_${id}`);
+              console.log(`⚠️ Invalid localStorage bid data, cleared`);
+            }
+          } else {
+            setUserBid(null);
+            console.log(`ℹ️ No bid found in API or localStorage`);
+          }
+        }
       } else {
-        setUserOffer(null); // Owners don't have personal offers on their own products
-      }
-
-      // Store offer in localStorage for persistence (only for non-owners)
-      if (currentUserOffer && !isOwner) {
-        localStorage.setItem(`offer_${id}`, JSON.stringify(currentUserOffer));
+        setUserBid(null); // Owners don't have personal bids on their own products
+        console.log(`👑 User is owner - not showing bid`);
       }
       
       // Fetch cart and favorites status if user is logged in
@@ -120,6 +176,7 @@ const ProductPage = () => {
         try {
           const favRes = await api.get(`/favorites/user/${userId}`);
           const isFav = favRes.data.items?.some((item) => item.productId === id);
+
           setIsFavorite(isFav);
           localStorage.setItem(`favorite_${id}`, JSON.stringify(isFav));
         } catch (error) {
@@ -127,11 +184,8 @@ const ProductPage = () => {
         }
       }
 
-      // ✅ Load userOffer from localStorage if API didn't return it (persistence fix) - only for non-owners
-      const savedOffer = localStorage.getItem(`offer_${id}`);
-      if (savedOffer && !currentUserOffer && !isOwner) {
-        setUserOffer(JSON.parse(savedOffer));
-      }
+      // ✅ REMOVED: Don't use localStorage as fallback - always use fresh API data
+      // This ensures bid status is always current (including when rejected)
     } catch (err) {
       console.error("Product fetch error:", err);
     } finally {
@@ -143,19 +197,78 @@ const ProductPage = () => {
     fetchProduct();
   }, [fetchProduct]);
 
+  // ✅ Reset notification tracker when product or user changes
+  useEffect(() => {
+    setBidStatusNotificationShown(false);
+  }, [id, user?._id]);
+
+  // ✅ NEW: Show bid status notification when bid status changes (accepted or rejected)
+  useEffect(() => {
+    if (userBid && !bidStatusNotificationShown) {
+      // Check if user is the owner
+      const currentUserId = user?._id || user?.id;
+      const isOwnerCheck = currentUserId && product && String(currentUserId) === String(product.userId);
+      
+      if (isOwnerCheck) {
+        return;  // Don't show notification for product owners
+      }
+      
+      // Determine bid status
+      const bidStatus = userBid.bidStatus || userBid.status || "pending";
+      
+      // Get bid amount for message
+      const bidAmount = userBid.amount || userBid.bidAmount || 0;
+      const formattedAmount = new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency: 'USD'
+      }).format(bidAmount);
+      
+      if (bidStatus === 'rejected') {
+        setError(null);
+        setSuccess(`😢 Your bid of ${formattedAmount} on this product was declined by the seller. Better luck next time!`);
+        setBidStatusNotificationShown(true);
+        // ✅ CRITICAL: Refetch product to ensure the rejection card updates properly
+        console.log(`🔄 Rejection detected - refetching product to update UI`);
+        fetchProduct();
+        // Auto-clear after 6 seconds
+        const timer = setTimeout(() => setSuccess(null), 6000);
+        return () => clearTimeout(timer);
+      } else if (bidStatus === 'accepted') {
+        setError(null);
+        setSuccess(`🎉 Great news! Your bid of ${formattedAmount} has been accepted! Proceed to checkout to complete your purchase.`);
+        setBidStatusNotificationShown(true);
+        // Auto-clear after 6 seconds
+        const timer = setTimeout(() => setSuccess(null), 6000);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [userBid, product, user, bidStatusNotificationShown, fetchProduct]);
+
+  // ✅ NEW: Refetch product data when window regains focus (user switches back to tab)
+  // This ensures bid status and product availability are always current
+  useEffect(() => {
+    const handleWindowFocus = () => {
+      console.log("🔄 Window gained focus - refreshing product data");
+      fetchProduct();
+    };
+
+    window.addEventListener("focus", handleWindowFocus);
+    return () => window.removeEventListener("focus", handleWindowFocus);
+  }, [fetchProduct]);
+
   // ✅ Get display price - UPDATED to use accepted offer price if available
   const getDisplayPrice = () => {
     if (!product) return 0;
     
     // If user has an accepted offer, use that price
-    if (product.userAcceptedOffer && product.userAcceptedOffer.acceptedAmount) {
-      return product.userAcceptedOffer.acceptedAmount;
+    if (product.userAcceptedBid && product.userAcceptedBid.acceptedAmount) {
+      return product.userAcceptedBid.acceptedAmount;
     }
 
-    // Also support backend field `acceptedOffer` in case API returns it directly
+    // Also support backend field `acceptedBid` in case API returns it directly
     const currentUserId = user?._id || user?.id;
-    if (product.acceptedOffer && currentUserId && String(product.acceptedOffer.bidderId) === String(currentUserId)) {
-      return product.acceptedOffer.acceptedAmount;
+    if (product.acceptedBid && currentUserId && String(product.acceptedBid.bidderId) === String(currentUserId)) {
+      return product.acceptedBid.acceptedAmount;
     }
     
     // Otherwise use regular price
@@ -165,13 +278,13 @@ const ProductPage = () => {
   // ✅ Toggle Cart Function with localStorage persistence - UPDATED to use accepted price
   const toggleCart = async () => {
     if (!user) {
-      alert("Please log in to manage cart items.");
-      navigate('/login');
+      setError("Please log in to manage cart items.");
+      setTimeout(() => navigate('/login'), 2000);
       return;
     }
 
     if (!product.isAvailable) {
-      alert("This product is no longer available.");
+      setError("This product is no longer available.");
       return;
     }
 
@@ -184,13 +297,14 @@ const ProductPage = () => {
         });
         setIsInCart(false);
         localStorage.setItem(`cart_${id}`, JSON.stringify(false));
+        setSuccess("Item removed from cart");
       } else {
-        // Use accepted offer price if available, otherwise regular price
+        // Use accepted bid price if available, otherwise regular price
         const finalPrice = getDisplayPrice();
         const currentUserId = user._id || user.id;
-        const isAcceptedOffer = !!(
-          (product.userAcceptedOffer && product.userAcceptedOffer.acceptedAmount) ||
-          (product.acceptedOffer && String(product.acceptedOffer.bidderId) === String(currentUserId))
+        const isAcceptedBid = !!(
+          (product.userAcceptedBid && product.userAcceptedBid.acceptedAmount) ||
+          (product.acceptedBid && String(product.acceptedBid.bidderId) === String(currentUserId))
         );
 
         await api.post("/cart/add", {
@@ -198,14 +312,15 @@ const ProductPage = () => {
           productId: id,
           quantity: 1,
           price: finalPrice, // Include the price in cart
-          isAcceptedOffer
+          isAcceptedBid
         });
         setIsInCart(true);
         localStorage.setItem(`cart_${id}`, JSON.stringify(true));
+        setSuccess("Item added to cart");
       }
     } catch (error) {
-      console.error("Cart toggle error:", error);
-      alert("Failed to update cart");
+      const errorMsg = error.response?.data?.message || error.message || "Failed to update cart. Please try again.";
+      setError(errorMsg);
     } finally {
       setUpdatingCart(false);
     }
@@ -214,8 +329,8 @@ const ProductPage = () => {
   // ✅ Toggle Favorite Function with localStorage persistence
   const toggleFavorite = async () => {
     if (!user) {
-      alert("Please log in to manage favorites.");
-      navigate('/login');
+      setError("Please log in to manage favorites.");
+      setTimeout(() => navigate('/login'), 2000);
       return;
     }
 
@@ -228,6 +343,7 @@ const ProductPage = () => {
         });
         setIsFavorite(false);
         localStorage.setItem(`favorite_${id}`, JSON.stringify(false));
+        setSuccess("Removed from favorites");
       } else {
         await api.post("/favorites/add", { 
           userId: user._id || user.id, 
@@ -235,83 +351,135 @@ const ProductPage = () => {
         });
         setIsFavorite(true);
         localStorage.setItem(`favorite_${id}`, JSON.stringify(true));
+        setSuccess("Added to favorites");
       }
     } catch (error) {
-      console.error("Toggle favorite error:", error);
-      alert("Failed to update favorites");
+      const errorMsg = error.response?.data?.message || error.message || "Failed to update favorites. Please try again.";
+      setError(errorMsg);
     } finally {
       setUpdatingFavorite(false);
     }
   };
 
-  // ✅ Handle offer placement with localStorage persistence
-  const handlePlaceOffer = async () => {
+  // ✅ Handle bid placement with localStorage persistence
+  const handlePlaceBid = async () => {
     if (!user) {
-      alert("Please log in to make an offer.");
-      navigate('/login');
+      setError("Please log in to make a bid.");
+      setTimeout(() => navigate('/login'), 2000);
       return;
     }
 
     if (!product.isAvailable) {
-      alert("This product is no longer available.");
+      setError("This product is no longer available.");
       return;
     }
 
-    const offer = parseFloat(offerAmount);
-    if (isNaN(offer) || offer <= 0) {
-      alert("Please enter a valid offer amount.");
+    const parsedBidAmount = parseFloat(bidAmount);
+    if (isNaN(parsedBidAmount) || parsedBidAmount <= 0) {
+      setError("Please enter a valid bid amount greater than $0.");
       return;
     }
 
-    setPlacingOffer(true);
+    setPlacingBid(true);
     try {
       const res = await api.post(`/products/${id}/placeBid`, {
-        amount: offer,
+        amount: parsedBidAmount,
         bidderId: user._id || user.id,
         bidderName: user.name,
       });
 
       setProduct(res.data.product);
-      setOfferAmount("");
-      setShowOfferCard(false);
+      setBidAmount("");
+      setShowBidCard(false);
       
-      // ✅ FIX: Update userOffer state and persist to localStorage (only for non-owners)
-      const newUserOffer = res.data.bid;
+      // ✅ FIX: Set userBid with proper bid data and persist to localStorage
       const isOwner = (user._id || user.id) === product.userId;
       if (!isOwner) {
-        setUserOffer(newUserOffer);
-        localStorage.setItem(`offer_${id}`, JSON.stringify(newUserOffer));
+        // Use the bid from response - prefer product.activeBids version for consistency
+        const userBid = res.data.product.activeBids?.find(
+          bid => String(bid.bidderId) === String(user._id || user.id)
+        ) || res.data.bid;
+        
+        setUserBid(userBid);
+        // Store to localStorage with all necessary fields
+        localStorage.setItem(`bid_${id}`, JSON.stringify(userBid));
+        console.log(`💾 Bid stored to localStorage:`, userBid);
       }
 
       if (res.data.isUpdate) {
-        alert("Offer updated successfully!");
+        setSuccess("Bid updated successfully!");
       } else {
-        alert("Offer submitted successfully!");
+        setSuccess("Bid submitted successfully! The seller will review your bid.");
       }
     } catch (err) {
-      console.error("Error placing offer:", err);
-      alert(err.response?.data?.message || "Failed to submit offer.");
+      const errorMsg = err.response?.data?.message || err.message || "Failed to submit bid. Please try again.";
+      setError(errorMsg);
     } finally {
-      setPlacingOffer(false);
+      setPlacingBid(false);
+    }
+  };
+
+  // ✅ NEW: Handle Accept Bid for sellers
+  const handleAcceptBid = async (bid) => {
+    if (!user || !product) {
+      setError("Please log in to perform this action.");
+      return;
+    }
+
+    // ✅ VALIDATION: Verify user is the product owner
+    const isOwner = String(user._id || user.id) === String(product.userId);
+    if (!isOwner) {
+      setError("Only the product owner can accept bids.");
+      return;
+    }
+
+    setAcceptingBid(true);
+    try {
+      // Show loading feedback
+      setSuccess("Processing bid acceptance...");
+
+      const response = await api.post(`/products/${id}/acceptBid`, {
+        bidId: bid.bidId,
+        bidderId: bid.bidderId,
+        acceptedAmount: bid.amount
+      });
+
+      // ✅ Refetch with cache-buster and proper user ID
+      const userId = String(user._id || user.id);
+      const timestamp = new Date().getTime();
+      const updatedProduct = await api.get(`/products/${id}?userId=${encodeURIComponent(userId)}&t=${timestamp}`);
+      setProduct(updatedProduct.data);
+
+      // ✅ Show success feedback
+      setSuccess(`Bid of $${bid.amount} from ${bid.bidderName} accepted successfully.`);
+
+      // ✅ Clear any showing offer card
+      setshowBidCard(false);
+    } catch (err) {
+      const errorMsg = err.response?.data?.message || err.message || "Failed to accept bid. Please try again.";
+      setError(errorMsg);
+      console.error("Error accepting bid:", err);
+    } finally {
+      setAcceptingBid(false);
     }
   };
 
   // ✅ Handle Buy Now Function - UPDATED to use accepted offer price
   const handleBuyNow = async () => {
     if (!user) {
-      alert("Please log in to make a purchase.");
-      navigate('/login');
+      setError("Please log in to make a purchase.");
+      setTimeout(() => navigate('/login'), 2000);
       return;
     }
 
     if (!product.isAvailable) {
-      alert("This product is no longer available.");
+      setError("This product is no longer available.");
       return;
     }
 
     setUpdatingCart(true);
     try {
-      // Use accepted offer price if available, otherwise regular price
+      // Use accepted bid price if available, otherwise regular price
       const finalPrice = getDisplayPrice();
       
       // Add to cart first with correct price
@@ -328,9 +496,9 @@ const ProductPage = () => {
       
       // Navigate directly to checkout with correct price
       const currentUserId = user._id || user.id;
-      const isAcceptedOffer = !!(
-        (product.userAcceptedOffer && product.userAcceptedOffer.acceptedAmount) ||
-        (product.acceptedOffer && String(product.acceptedOffer.bidderId) === String(currentUserId))
+      const isAcceptedBid = !!(
+        (product.userAcceptedBid && product.userAcceptedBid.acceptedAmount) ||
+        (product.acceptedBid && String(product.acceptedBid.bidderId) === String(currentUserId))
       );
 
       navigate('/checkout', { 
@@ -340,29 +508,29 @@ const ProductPage = () => {
           productName: product.name,
           price: finalPrice, // Use the correct price (accepted offer or regular)
           quantity: 1,
-          isAcceptedOffer
+          isAcceptedBid
         }
       });
     } catch (error) {
-      console.error("Buy Now error:", error);
-      alert("Failed to process purchase");
+      const errorMsg = error.response?.data?.message || error.message || "Failed to process purchase. Please try again.";
+      setError(errorMsg);
     } finally {
       setUpdatingCart(false);
     }
   };
 
-  // ✅ Handle offer button click
-  const handleOfferButtonClick = () => {
+  // ✅ Handle bid button click
+  const handleBidButtonClick = () => {
     if (!user) {
-      alert("Please log in to make an offer.");
-      navigate('/login');
+      setError("Please log in to make a bid.");
+      setTimeout(() => navigate('/login'), 2000);
       return;
     }
     
-    if (userOffer) {
-      setOfferAmount(getOfferAmount(userOffer).toString());
+    if (userBid) {
+      setBidAmount(getBidAmount(userBid).toString());
     }
-    setShowOfferCard(true);
+    setShowBidCard(true);
   };
 
   // ✅ Open image in modal for better viewing
@@ -390,13 +558,44 @@ const ProductPage = () => {
     }
   };
 
-  const getOfferAmount = (offer) => {
+  const getBidAmount = (offer) => {
     if (!offer) return 0;
     return offer.amount || offer.bidAmount || 0;
   };
 
-  const getOfferStatus = (offer) => {
-    return offer.bidStatus || offer.status || "pending";
+  const getBidStatus = (offer) => {
+    // Check bidStatus first, then status, default to pending
+    const status = (offer?.bidStatus || offer?.status || "pending").toLowerCase().trim();
+    // Ensure it's a valid status value
+    if (["pending", "accepted", "rejected"].includes(status)) {
+      return status;
+    }
+    return "pending";
+  };
+
+  // ✅ NEW: Determine which card to show - ensures only ONE card renders at a time
+  // Uses priority: rejected > accepted > pending
+  const getCardTypeToShow = () => {
+    if (!userBid || isOwner || showBidCard) {
+      console.log('🔍 getCardTypeToShow: returning null because', {
+        userBidNull: !userBid,
+        isOwner,
+        showBidCard
+      });
+      return null;
+    }
+    
+    const status = getBidStatus(userBid);
+    const cardType = status === 'rejected' ? 'rejected' : (status === 'accepted' ? 'accepted' : (status === 'pending' || !userBid.bidStatus ? 'pending' : null));
+    
+    console.log(`🎯 CARD TO SHOW: "${cardType}" | userBid.bidStatus="${userBid.bidStatus}" | normalizedStatus="${status}" | amount=$${userBid.amount}`);
+    
+    // PRIORITY ORDER (highest to lowest):
+    if (status === 'rejected') return 'rejected';
+    if (status === 'accepted') return 'accepted';
+    if (status === 'pending' || !userBid.bidStatus) return 'pending';
+    
+    return null;
   };
 
   const isUserOwner = () => {
@@ -466,17 +665,95 @@ const ProductPage = () => {
   };
 
   if (loading) return <Loader />;
+  
+  // ✅ Handle invalid product ID error
+  if (invalidProductId) {
+    return (
+      <Container fluid style={{ 
+        background: 'linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%)',
+        minHeight: '100vh',
+        padding: 0,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center'
+      }}>
+        <Container>
+          <Row className="justify-content-center">
+            <Col md={6} className="text-center">
+              <Card className="border-0 shadow-lg p-5" style={{ borderRadius: '20px' }}>
+                <div style={{ fontSize: '4rem', marginBottom: '1.5rem' }}>❌</div>
+                <h3 style={{ color: colors.badge, fontWeight: '700', marginBottom: '1rem' }}>Invalid Product ID</h3>
+                <p style={{ color: colors.bg, fontSize: '1.1rem', marginBottom: '2rem' }}>
+                  The product ID you're trying to access is invalid or empty. Please make sure you have the correct product link.
+                </p>
+                <Button
+                  onClick={() => navigate('/categories')}
+                  className="hover-lift"
+                  style={{
+                    background: colors.bg,
+                    border: 'none',
+                    color: 'white',
+                    padding: '1rem 2rem',
+                    borderRadius: '10px',
+                    fontWeight: '700',
+                    fontSize: '1rem'
+                  }}
+                >
+                  <i className="fa-solid fa-arrow-left" style={{ marginRight: '0.5rem' }}></i>
+                  Back to Products
+                </Button>
+              </Card>
+            </Col>
+          </Row>
+        </Container>
+      </Container>
+    );
+  }
+  
   if (!product)
     return (
-      <Container className="text-center mt-5">
-        <div style={{ color: colors.bg, fontSize: '1.5rem', fontWeight: '600' }}>
-          Product not found
-        </div>
+      <Container fluid style={{ 
+        background: 'linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%)',
+        minHeight: '100vh',
+        padding: 0,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center'
+      }}>
+        <Container>
+          <Row className="justify-content-center">
+            <Col md={6} className="text-center">
+              <Card className="border-0 shadow-lg p-5" style={{ borderRadius: '20px' }}>
+                <div style={{ fontSize: '4rem', marginBottom: '1.5rem' }}>📦</div>
+                <h3 style={{ color: colors.bg, fontWeight: '700', marginBottom: '1rem' }}>Product Not Found</h3>
+                <p style={{ color: colors.bg, fontSize: '1.1rem', marginBottom: '2rem' }}>
+                  Sorry, the product you're looking for doesn't exist or has been removed. Please check the product ID and try again.
+                </p>
+                <Button
+                  onClick={() => navigate('/categories')}
+                  className="hover-lift"
+                  style={{
+                    background: colors.bg,
+                    border: 'none',
+                    color: 'white',
+                    padding: '1rem 2rem',
+                    borderRadius: '10px',
+                    fontWeight: '700',
+                    fontSize: '1rem'
+                  }}
+                >
+                  <i className="fa-solid fa-arrow-left" style={{ marginRight: '0.5rem' }}></i>
+                  Back to Products
+                </Button>
+              </Card>
+            </Col>
+          </Row>
+        </Container>
       </Container>
     );
 
   const isAvailable = product.isAvailable;
-  const currentOffers = product.activeBids || [];
+  const currentBids = product.activeBids || [];
   const sellerInfo = getSellerInfo();
   const isOwner = product.isOwner || isUserOwner();
   const displayPrice = getDisplayPrice();
@@ -487,6 +764,25 @@ const ProductPage = () => {
       minHeight: '100vh',
       padding: 0 
     }}>
+      {/* Error and Success Notifications */}
+      <div style={{ position: 'sticky', top: '68px', zIndex: 1020, backgroundColor: '#f8f9fa', padding: '1rem' }}>
+        {error && (
+          <ErrorNotification 
+            message={error} 
+            type="error" 
+            onClose={() => setError(null)}
+          />
+        )}
+        {success && (
+          <ErrorNotification 
+            message={success} 
+            type="success" 
+            onClose={() => setSuccess(null)}
+            autoClose={true}
+          />
+        )}
+      </div>
+
       {/* Enhanced CSS Animations */}
       <style>{`
         @keyframes floatIn {
@@ -778,26 +1074,42 @@ const ProductPage = () => {
               <div className="mb-4">
                 <div className="d-flex justify-content-between align-items-start mb-3">
                   <h1 style={{ 
-                    color: colors.bg, 
+                    color: product.isAvailable ? colors.bg : '#9CA3AF',
                     fontWeight: '800',
                     fontSize: '2.5rem',
                     margin: 0,
                     flex: 1,
-                    lineHeight: '1.2'
+                    lineHeight: '1.2',
+                    textDecoration: product.isAvailable ? 'none' : 'line-through'
                   }}>
                     {product.name}
                   </h1>
-                  <Badge style={{ 
-                    background: `linear-gradient(135deg, ${colors.bg}, ${colors.accent})`,
-                    color: colors.text,
-                    padding: '0.6rem 1.2rem',
-                    fontSize: '0.9rem',
-                    fontWeight: '700',
-                    borderRadius: '12px'
-                  }}>
-                    <i className="fa-solid fa-tag" style={{ marginRight: '0.5rem' }}></i>
-                    {product.category || 'General'}
-                  </Badge>
+                  <div style={{ display: 'flex', gap: '0.8rem' }}>
+                    {!product.isAvailable && (
+                      <Badge style={{ 
+                        background: '#EF4444',
+                        color: 'white',
+                        padding: '0.6rem 1.2rem',
+                        fontSize: '0.9rem',
+                        fontWeight: '700',
+                        borderRadius: '12px'
+                      }}>
+                        <i className="fa-solid fa-sold" style={{ marginRight: '0.5rem' }}></i>
+                        SOLD
+                      </Badge>
+                    )}
+                    <Badge style={{ 
+                      background: `linear-gradient(135deg, ${colors.bg}, ${colors.accent})`,
+                      color: colors.text,
+                      padding: '0.6rem 1.2rem',
+                      fontSize: '0.9rem',
+                      fontWeight: '700',
+                      borderRadius: '12px'
+                    }}>
+                      <i className="fa-solid fa-tag" style={{ marginRight: '0.5rem' }}></i>
+                      {product.category || 'General'}
+                    </Badge>
+                  </div>
                 </div>
                 
                 {isInCart && (
@@ -821,21 +1133,21 @@ const ProductPage = () => {
 
               {/* Enhanced Pricing Section */}
               <Card className="border-0 mb-4 hover-lift gradient-bg" style={{ 
-                border: product.userAcceptedOffer ? `3px solid #22C55E` : 'none',
+                border: product.userAcceptedBid ? `3px solid #22C55E` : 'none',
                 borderRadius: '16px',
                 overflow: 'hidden'
               }}>
                 <Card.Body className="p-4">
                   <div className="d-flex align-items-baseline gap-3 mb-2 flex-wrap">
                     <span style={{ 
-                      color: product.userAcceptedOffer ? '#22C55E' : colors.accent,
+                      color: product.userAcceptedBid ? '#22C55E' : colors.accent,
                       fontSize: '2.5rem',
                       fontWeight: '800',
                     }}>
                       {formatCurrency(displayPrice)}
                     </span>
                     
-                    {product.userAcceptedOffer ? (
+                    {product.userAcceptedBid ? (
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', flexWrap: 'wrap' }}>
                         <span style={{ 
                           color: '#6c757d', 
@@ -843,7 +1155,7 @@ const ProductPage = () => {
                           fontSize: '1.6rem',
                           fontWeight: '600'
                         }}>
-                          {formatCurrency(product.userAcceptedOffer.originalPrice)}
+                          {formatCurrency(product.userAcceptedBid.originalPrice)}
                         </span>
                         <Badge style={{ 
                           background: '#22C55E',
@@ -854,7 +1166,7 @@ const ProductPage = () => {
                           borderRadius: '20px'
                         }} className="pulse-accept">
                           <i className="fa-solid fa-trophy" style={{ marginRight: '0.5rem' }}></i>
-                          Your Accepted Offer!
+                          Your Accepted bid!
                         </Badge>
                       </div>
                     ) : (
@@ -886,7 +1198,7 @@ const ProductPage = () => {
                     )}
                   </div>
                   <p style={{ 
-                    color: product.userAcceptedOffer ? '#22C55E' : colors.bg, 
+                    color: product.userAcceptedBid ? '#22C55E' : colors.bg, 
                     fontWeight: '600', 
                     margin: 0, 
                     fontSize: '1rem',
@@ -894,10 +1206,10 @@ const ProductPage = () => {
                     alignItems: 'center',
                     gap: '0.5rem'
                   }}>
-                    <i className={`fa-solid ${product.userAcceptedOffer ? 'fa-handshake' : 'fa-comments-dollar'}`}></i>
-                    {product.userAcceptedOffer ? 
-                      "Congratulations! Your offer was accepted at this special price!" : 
-                      "Price is negotiable - Make an offer!"}
+                    <i className={`fa-solid ${product.userAcceptedBid ? 'fa-handshake' : 'fa-comments-dollar'}`}></i>
+                    {product.userAcceptedBid ? 
+                      "Congratulations! Your bid was accepted at this special price!" : 
+                      "Price is negotiable - Make a bid!"}
                   </p>
                 </Card.Body>
               </Card>
@@ -939,9 +1251,9 @@ const ProductPage = () => {
                   
                   <Col sm={6}>
                     <Button
-                      onClick={handleOfferButtonClick}
-                      disabled={!isAvailable || placingOffer || 
-                               (userOffer && (getOfferStatus(userOffer) === 'accepted' || getOfferStatus(userOffer) === 'rejected'))}
+                      onClick={handleBidButtonClick}
+                      disabled={!isAvailable || placingBid || 
+                               (userBid && (getBidStatus(userBid) === 'accepted' || getBidStatus(userBid) === 'rejected'))}
                       className="w-100 border-0 hover-lift d-flex align-items-center justify-content-center gap-2"
                       style={{ 
                         background: colors.highlight,
@@ -961,25 +1273,25 @@ const ProductPage = () => {
                           <i className="fa-solid fa-ban"></i>
                           Sold
                         </>
-                      ) : userOffer && getOfferStatus(userOffer) === 'accepted' ? (
+                      ) : userBid && getBidStatus(userBid) === 'accepted' ? (
                         <>
                           <i className="fa-solid fa-check-circle"></i>
                           Accepted
                         </>
-                      ) : userOffer && getOfferStatus(userOffer) === 'rejected' ? (
+                      ) : userBid && getBidStatus(userBid) === 'rejected' ? (
                         <>
                           <i className="fa-solid fa-times-circle"></i>
                           Closed
                         </>
-                      ) : userOffer ? (
+                      ) : userBid ? (
                         <>
                           <i className="fa-solid fa-edit"></i>
-                          Update Offer
+                          Update Bid
                         </>
                       ) : (
                         <>
                           <i className="fa-solid fa-handshake"></i>
-                          Make Offer
+                          Make Bid
                         </>
                       )}
                     </Button>
@@ -991,7 +1303,7 @@ const ProductPage = () => {
                       disabled={!isAvailable || updatingCart}
                       className="w-100 border-0 hover-lift d-flex align-items-center justify-content-center gap-2"
                       style={{ 
-                        background: product.userAcceptedOffer ? 
+                        background: product.userAcceptedBid ? 
                           'linear-gradient(135deg, #22C55E, #16A34A)' : 
                           `linear-gradient(135deg, ${colors.accent}, ${colors.bg})`,
                         padding: '1.1rem',
@@ -1006,7 +1318,7 @@ const ProductPage = () => {
                     >
                       {updatingCart ? (
                         <i className="fa-solid fa-spinner fa-spin"></i>
-                      ) : product.userAcceptedOffer ? (
+                      ) : product.userAcceptedBid ? (
                         <>
                           <i className="fa-solid fa-bolt"></i>
                           Buy at Your Accepted Price!
@@ -1075,7 +1387,7 @@ const ProductPage = () => {
                       <i className="fa-solid fa-crown" style={{ color: colors.highlight }}></i>
                       This is your own listing - Manage it from your profile
                     </p>
-                    {currentOffers.length > 0 && (
+                    {currentBids.length > 0 && (
                       <p style={{ 
                         color: colors.accent, 
                         margin: '0.5rem 0 0 0',
@@ -1083,7 +1395,7 @@ const ProductPage = () => {
                         fontSize: '0.9rem'
                       }}>
                         <i className="fa-solid fa-hand-holding-dollar"></i>
-                        You have {currentOffers.length} offer{currentOffers.length > 1 ? 's' : ''} on this product
+                        You have {currentBids.length} bid{currentBids.length > 1 ? 's' : ''} on this product
                       </p>
                     )}
                   </Card.Body>
@@ -1091,7 +1403,7 @@ const ProductPage = () => {
               )}
 
               {/* Enhanced Offer Card */}
-              {showOfferCard && !isOwner && (
+              {showBidCard && !isOwner && (
                 <Card className="border-0 shadow hover-lift" style={{ 
                   border: `3px solid ${colors.highlight}`,
                   borderRadius: '16px',
@@ -1106,15 +1418,15 @@ const ProductPage = () => {
                         fontSize: '1.2rem'
                       }}>
                         <i className="fa-solid fa-handshake" style={{ marginRight: '0.5rem' }}></i>
-                        {userOffer ? 'Update Your Offer' : 'Make Your Offer'}
+                        {userBid ? 'Update Your Bid' : 'Make Your Bid'}
                       </h6>
                     </div>
                     
-                    {userOffer && (
+                    {userBid && (
                       <Card className="border-0 mb-3 gradient-bg" style={{ borderRadius: '12px' }}>
                         <Card.Body className="p-3 text-center">
                           <p style={{ color: colors.bg, fontWeight: '700', margin: 0, fontSize: '1rem' }}>
-                            Current offer: <span style={{ color: colors.accent, fontSize: '1.2rem' }}>{formatCurrency(getOfferAmount(userOffer))}</span>
+                            Current bid: <span style={{ color: colors.accent, fontSize: '1.2rem' }}>{formatCurrency(getBidAmount(userBid))}</span>
                           </p>
                         </Card.Body>
                       </Card>
@@ -1129,13 +1441,13 @@ const ProductPage = () => {
                         fontSize: '1rem'
                       }}>
                         <i className="fa-solid fa-dollar-sign" style={{ marginRight: '0.5rem' }}></i>
-                        Offer Amount
+                        Bid Amount
                       </label>
                       <input
                         type="number"
-                        placeholder={userOffer ? "Enter new offer amount..." : "Enter your offer amount..."}
-                        value={offerAmount}
-                        onChange={(e) => setOfferAmount(e.target.value)}
+                        placeholder={userBid ? "Enter new bid amount..." : "Enter your bid amount..."}
+                        value={bidAmount}
+                        onChange={(e) => setBidAmount(e.target.value)}
                         style={{
                           width: '100%',
                           padding: '1rem',
@@ -1157,14 +1469,14 @@ const ProductPage = () => {
                       <Card.Body className="p-3">
                         <p style={{ color: colors.bg, fontSize: '0.9rem', margin: 0, fontWeight: '500', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                           <i className="fa-solid fa-lightbulb" style={{ color: colors.highlight }}></i>
-                          This is bargaining - offer any amount you think is fair! The seller will review your offer.
+                          This is bargaining - bid any amount you think is fair! The seller will review your bid.
                         </p>
                       </Card.Body>
                     </Card>
                     
                     <div className="d-flex gap-3">
                       <Button
-                        onClick={() => setShowOfferCard(false)}
+                        onClick={() => setShowBidCard(false)}
                         className="hover-lift"
                         style={{
                           flex: 1,
@@ -1182,8 +1494,8 @@ const ProductPage = () => {
                         Cancel
                       </Button>
                       <Button
-                        onClick={handlePlaceOffer}
-                        disabled={placingOffer || !offerAmount}
+                        onClick={handlePlaceBid}
+                        disabled={placingBid || !bidAmount}
                         className="hover-lift"
                         style={{
                           flex: 1,
@@ -1197,17 +1509,17 @@ const ProductPage = () => {
                           transition: 'all 0.3s ease'
                         }}
                       >
-                        {placingOffer ? (
+                        {placingBid ? (
                           <i className="fa-solid fa-spinner fa-spin"></i>
-                        ) : userOffer ? (
+                        ) : userBid ? (
                           <>
                             <i className="fa-solid fa-pen-to-square" style={{ marginRight: '0.5rem' }}></i>
-                            Update Offer
+                            Update Bid
                           </>
                         ) : (
                           <>
                             <i className="fa-solid fa-paper-plane" style={{ marginRight: '0.5rem' }}></i>
-                            Submit Offer
+                            Submit Bid
                           </>
                         )}
                       </Button>
@@ -1216,19 +1528,12 @@ const ProductPage = () => {
                 </Card>
               )}
 
-              {/* Enhanced User's Current Offer */}
-              {userOffer && !isOwner && !showOfferCard && (
+              {/* ✅ Show "Your Current Bid" card ONLY for PENDING bids */}
+              {getCardTypeToShow() === 'pending' && (
                 <Card className="border-0 shadow hover-lift" 
                   style={{ 
-                    background: getOfferStatus(userOffer) === 'accepted' ? 
-                      'linear-gradient(135deg, rgba(34, 197, 94, 0.1), rgba(22, 163, 74, 0.1))' :
-                      getOfferStatus(userOffer) === 'rejected' ? 
-                      'linear-gradient(135deg, rgba(245, 101, 101, 0.1), rgba(229, 62, 62, 0.1))' :
-                      `linear-gradient(135deg, ${colors.accent}15, ${colors.bg}15)`,
-                    border: `3px solid ${
-                      getOfferStatus(userOffer) === 'accepted' ? '#22C55E' :
-                      getOfferStatus(userOffer) === 'rejected' ? colors.badge : colors.bg
-                    }`,
+                    background: `linear-gradient(135deg, ${colors.accent}15, ${colors.bg}15)`,
+                    border: `3px solid ${colors.bg}`,
                     borderRadius: '16px'
                   }}
                 >
@@ -1236,8 +1541,7 @@ const ProductPage = () => {
                     <div className="d-flex justify-content-between align-items-center">
                       <div>
                         <h6 style={{ 
-                          color: getOfferStatus(userOffer) === 'accepted' ? '#22C55E' :
-                                 getOfferStatus(userOffer) === 'rejected' ? colors.badge : colors.bg,
+                          color: colors.bg,
                           fontWeight: '700',
                           margin: 0,
                           fontSize: '1.1rem',
@@ -1245,22 +1549,8 @@ const ProductPage = () => {
                           alignItems: 'center',
                           gap: '0.5rem'
                         }}>
-                          {getOfferStatus(userOffer) === 'accepted' ? (
-                            <>
-                              <i className="fa-solid fa-check-circle"></i>
-                              Offer Accepted!
-                            </>
-                          ) : getOfferStatus(userOffer) === 'rejected' ? (
-                            <>
-                              <i className="fa-solid fa-times-circle"></i>
-                              Offer Declined
-                            </>
-                          ) : (
-                            <>
-                              <i className="fa-solid fa-clock"></i>
-                              Your Current Offer
-                            </>
-                          )}
+                          <i className="fa-solid fa-clock"></i>
+                          Your Current Bid
                         </h6>
                         <p style={{ 
                           color: colors.bg,
@@ -1268,7 +1558,7 @@ const ProductPage = () => {
                           margin: '0.5rem 0 0 0',
                           fontSize: '1.3rem'
                         }}>
-                          {formatCurrency(getOfferAmount(userOffer))}
+                          {formatCurrency(getBidAmount(userBid))}
                         </p>
                         <small style={{ 
                           color: colors.bg,
@@ -1276,14 +1566,11 @@ const ProductPage = () => {
                           fontSize: '0.9rem',
                           fontWeight: '500'
                         }}>
-                          {getOfferStatus(userOffer) === 'pending' ? 'Waiting for seller response' :
-                           getOfferStatus(userOffer) === 'accepted' ? 'Congratulations! Proceed to checkout' :
-                           'Seller declined your offer'}
+                          ⏳ Waiting for seller response
                         </small>
                       </div>
                       <Button
-                        onClick={handleOfferButtonClick}
-                        disabled={getOfferStatus(userOffer) === 'accepted' || getOfferStatus(userOffer) === 'rejected' || !isAvailable}
+                        onClick={handleBidButtonClick}
                         className="hover-lift"
                         style={{
                           background: colors.bg,
@@ -1294,12 +1581,161 @@ const ProductPage = () => {
                           fontWeight: '700'
                         }}
                       >
-                        {getOfferStatus(userOffer) === 'accepted' ? 'Accepted' :
-                         getOfferStatus(userOffer) === 'rejected' ? 'Closed' : 'Update'}
+                        <i className="fa-solid fa-pen-to-square" style={{ marginRight: '0.5rem' }}></i>
+                        Update Bid
                       </Button>
                     </div>
                   </Card.Body>
                 </Card>
+              )}
+
+              {/* ✅ DEBUG: Log userBid state for rejection card troubleshooting */}
+              {userBid && (
+                <div style={{ display: 'none' }}>
+                  {console.log('🔍 REJECTION CARD DEBUG:', {
+                    userBidExists: !!userBid,
+                    isOwner: isOwner,
+                    showBidCard: showBidCard,
+                    computedBidStatus: getBidStatus(userBid),
+                    rawBidStatus: userBid.bidStatus,
+                    shouldRenderRejection: (getBidStatus(userBid) === 'rejected' && userBid.bidStatus === 'rejected'),
+                    fullBid: userBid
+                  })}
+                </div>
+              )}
+
+              {/* ✅ Show "Bid Rejected" card ONLY for REJECTED bids - PRIORITY CHECK */}
+              {getCardTypeToShow() === 'rejected' && (
+                <Card className="border-0 shadow hover-lift" 
+                  style={{ 
+                    background: 'linear-gradient(135deg, rgba(245, 101, 101, 0.1), rgba(229, 62, 62, 0.1))',
+                    border: `3px solid ${colors.badge}`,
+                    borderRadius: '16px'
+                  }}
+                >
+                  <Card.Body className="p-4">
+                    <div className="d-flex justify-content-between align-items-start">
+                      <div style={{ flex: 1 }}>
+                        <h6 style={{ 
+                          color: colors.badge,
+                          fontWeight: '700',
+                          margin: 0,
+                          fontSize: '1.1rem',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.5rem'
+                        }}>
+                          <i className="fa-solid fa-times-circle"></i>
+                          Bid Rejected
+                        </h6>
+                        <p style={{ 
+                          color: colors.bg,
+                          fontWeight: '800',
+                          margin: '0.5rem 0 0.25rem 0',
+                          fontSize: '1.3rem'
+                        }}>
+                          {formatCurrency(getBidAmount(userBid))}
+                        </p>
+                        <small style={{ 
+                          color: colors.bg,
+                          opacity: 0.8,
+                          fontSize: '0.9rem',
+                          fontWeight: '500',
+                          lineHeight: '1.5',
+                          display: 'block'
+                        }}>
+                          Your bid was rejected by the seller
+                        </small>
+                      </div>
+                      <Button
+                        onClick={handleBidButtonClick}
+                        className="hover-lift"
+                        style={{
+                          background: colors.accent,
+                          border: 'none',
+                          borderRadius: '10px',
+                          padding: '0.75rem 1.25rem',
+                          fontSize: '0.9rem',
+                          fontWeight: '700',
+                          color: 'white',
+                          marginLeft: '1rem',
+                          whiteSpace: 'nowrap',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        <i className="fa-solid fa-plus" style={{ marginRight: '0.5rem' }}></i>
+                        Try Another Bid
+                      </Button>
+                    </div>
+                  </Card.Body>
+                </Card>
+              )}
+
+              {/* ✅ Show "Your Accepted Offer" card ONLY for ACCEPTED bids - PRIORITY CHECK */}
+              {getCardTypeToShow() === 'accepted' && (
+                <>
+                  <Card className="border-0 shadow hover-lift" 
+                    style={{ 
+                      background: 'linear-gradient(135deg, rgba(34, 197, 94, 0.15), rgba(22, 163, 74, 0.15))',
+                      border: `3px solid #22C55E`,
+                      borderRadius: '16px'
+                    }}
+                  >
+                    <Card.Body className="p-4">
+                      <div className="d-flex justify-content-between align-items-center">
+                        <div>
+                          <h6 style={{ 
+                            color: '#22C55E',
+                            fontWeight: '700',
+                            margin: 0,
+                            fontSize: '1.1rem',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.5rem'
+                          }}>
+                            <i className="fa-solid fa-check-circle"></i>
+                            Your Accepted Bid!
+                          </h6>
+                          <p style={{ 
+                            color: colors.bg,
+                            fontWeight: '800',
+                            margin: '0.5rem 0 0 0',
+                            fontSize: '1.3rem'
+                          }}>
+                            {formatCurrency(getBidAmount(userBid))}
+                          </p>
+                          <small style={{ 
+                            color: colors.bg,
+                            opacity: 0.8,
+                            fontSize: '0.9rem',
+                            fontWeight: '500'
+                          }}>
+                            Congratulations! Your bid was accepted at this special price!
+                          </small>
+                        </div>
+                        <Button
+                          onClick={handleBuyNow}
+                          className="hover-lift"
+                          style={{
+                            background: '#22C55E',
+                            border: 'none',
+                            borderRadius: '10px',
+                            padding: '0.75rem 1.25rem',
+                            fontSize: '0.9rem',
+                            fontWeight: '700',
+                            color: 'white'
+                          }}
+                        >
+                          <i className="fa-solid fa-cart-shopping" style={{ marginRight: '0.5rem' }}></i>
+                          Checkout
+                        </Button>
+                      </div>
+                    </Card.Body>
+                  </Card>
+                  
+                   
+                   
+                </>
               )}
             </div>
           </Col>
@@ -1415,8 +1851,8 @@ const ProductPage = () => {
                     </Accordion.Body>
                   </Accordion.Item>
 
-                  {/* Offers (for owner) - UPDATED to show all bids to owner */}
-                  {isOwner && currentOffers.length > 0 && (
+                  {/* ✅ NEW: All Bids Display (for sold products - visible to all users) */}
+                  {!isAvailable && currentBids.length > 0 && (
                     <Accordion.Item eventKey="2" className="border-0 mb-3" style={{ borderRadius: '15px', overflow: 'hidden' }}>
                       <Accordion.Header style={{ 
                         fontWeight: '700', 
@@ -1426,34 +1862,37 @@ const ProductPage = () => {
                         padding: '1.5rem',
                         fontSize: '1.1rem'
                       }}>
-                        <i className="fa-solid fa-hand-holding-dollar" style={{ marginRight: '0.8rem', color: colors.accent }}></i>
-                        Received Offers ({currentOffers.length})
+                        <i className="fa-solid fa-gavel" style={{ marginRight: '0.8rem', color: colors.accent }}></i>
+                        Bidding Summary ({currentBids.length} bid{currentBids.length > 1 ? 's' : ''})
                       </Accordion.Header>
                       <Accordion.Body style={{ 
                         background: '#d7c9aa37',
                         padding: '2rem',
                         borderTop: `2px solid ${colors.accent}`
                       }}>
-                        <div style={{ maxHeight: '400px', overflowY: 'auto', paddingRight: '1rem' }}>
-                          {currentOffers
-                            .sort((a, b) => getOfferAmount(b) - getOfferAmount(a))
+                        <div style={{ maxHeight: '500px', overflowY: 'auto', paddingRight: '1rem' }}>
+                          {currentBids
+                            .sort((a, b) => getBidAmount(b) - getBidAmount(a))
                             .map((offer, index) => (
                               <Card 
                                 key={offer.bidId || `offer-${index}`}
                                 className="mb-3 border-0 hover-lift"
                                 style={{ 
-                                  background: 'white',
+                                  background: getBidStatus(offer) === 'accepted' 
+                                    ? 'linear-gradient(90deg, rgba(34, 197, 94, 0.1), rgba(34, 197, 94, 0.05))'
+                                    : 'white',
                                   borderRadius: '12px',
                                   borderLeft: `5px solid ${
-                                    getOfferStatus(offer) === 'accepted' ? '#22C55E' :
-                                    getOfferStatus(offer) === 'rejected' ? colors.badge : colors.bg
+                                    getBidStatus(offer) === 'accepted' ? '#22C55E' :
+                                    getBidStatus(offer) === 'rejected' ? colors.badge : colors.bg
                                   }`,
-                                  boxShadow: '0 4px 15px rgba(0,0,0,0.08)'
+                                  boxShadow: '0 4px 15px rgba(0,0,0,0.08)',
+                                  border: getBidStatus(offer) === 'accepted' ? `2px solid #22C55E` : undefined
                                 }}
                               >
                                 <Card.Body className="p-3">
-                                  <div className="d-flex justify-content-between align-items-center">
-                                    <div>
+                                  <div className="d-flex justify-content-between align-items-start gap-3">
+                                    <div style={{ flex: 1 }}>
                                       <h6 style={{ color: colors.bg, margin: 0, fontSize: '1rem', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                                         <i className="fa-solid fa-user" style={{ color: colors.accent }}></i>
                                         {offer.bidderName || "Unknown User"}
@@ -1463,25 +1902,149 @@ const ProductPage = () => {
                                         {formatDate(offer.date)}
                                       </small>
                                     </div>
-                                    <div className="text-end">
+                                    <div style={{ textAlign: 'right', minWidth: '180px' }}>
                                       <div style={{ 
                                         color: colors.accent,
                                         fontSize: '1.2rem',
-                                        fontWeight: '800'
+                                        fontWeight: '800',
+                                        marginBottom: '0.5rem'
                                       }}>
-                                        {formatCurrency(getOfferAmount(offer))}
+                                        {formatCurrency(getBidAmount(offer))}
+                                      </div>
+                                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem', alignItems: 'flex-end' }}>
+                                        <small style={{ 
+                                          color: getBidStatus(offer) === 'accepted' ? '#22C55E' :
+                                                 getBidStatus(offer) === 'rejected' ? colors.badge : colors.highlight,
+                                          fontWeight: '700',
+                                          fontSize: '0.85rem',
+                                          textTransform: 'capitalize'
+                                        }}>
+                                          {getBidStatus(offer)}
+                                        </small>
+                                        {getBidStatus(offer) === 'accepted' && (
+                                          <Badge style={{ 
+                                            background: '#22C55E',
+                                            marginTop: '0.3rem',
+                                            fontSize: '0.75rem',
+                                            fontWeight: '700',
+                                            padding: '0.4rem 0.8rem'
+                                          }}>
+                                            <i className="fa-solid fa-crown" style={{ marginRight: '0.3rem' }}></i>
+                                            WINNING BID
+                                          </Badge>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </div>
+                                </Card.Body>
+                              </Card>
+                            ))}
+                        </div>
+                      </Accordion.Body>
+                    </Accordion.Item>
+                  )}
+
+                  {/* Bids (for owner) - UPDATED to show all bids to owner with Accept buttons */}
+                  {isOwner && currentBids.length > 0 && (
+                    <Accordion.Item eventKey="3" className="border-0 mb-3" style={{ borderRadius: '15px', overflow: 'hidden' }}>
+                      <Accordion.Header style={{ 
+                        fontWeight: '700', 
+                        color: colors.bg,
+                        background: 'white',
+                        border: 'none',
+                        padding: '1.5rem',
+                        fontSize: '1.1rem'
+                      }}>
+                        <i className="fa-solid fa-hand-holding-dollar" style={{ marginRight: '0.8rem', color: colors.accent }}></i>
+                        Received Bids ({currentBids.length})
+                      </Accordion.Header>
+                      <Accordion.Body style={{ 
+                        background: '#d7c9aa37',
+                        padding: '2rem',
+                        borderTop: `2px solid ${colors.accent}`
+                      }}>
+                        <div style={{ maxHeight: '500px', overflowY: 'auto', paddingRight: '1rem' }}>
+                          {currentBids
+                            .sort((a, b) => getBidAmount(b) - getBidAmount(a))
+                            .map((offer, index) => (
+                              <Card 
+                                key={offer.bidId || `offer-${index}`}
+                                className="mb-3 border-0 hover-lift"
+                                style={{ 
+                                  background: 'white',
+                                  borderRadius: '12px',
+                                  borderLeft: `5px solid ${
+                                    getBidStatus(offer) === 'accepted' ? '#22C55E' :
+                                    getBidStatus(offer) === 'rejected' ? colors.badge : colors.bg
+                                  }`,
+                                  boxShadow: '0 4px 15px rgba(0,0,0,0.08)'
+                                }}
+                              >
+                                <Card.Body className="p-3">
+                                  <div className="d-flex justify-content-between align-items-start gap-3">
+                                    <div style={{ flex: 1 }}>
+                                      <h6 style={{ color: colors.bg, margin: 0, fontSize: '1rem', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                        <i className="fa-solid fa-user" style={{ color: colors.accent }}></i>
+                                        {offer.bidderName || "Unknown User"}
+                                      </h6>
+                                      <small style={{ color: colors.bg, fontSize: '0.85rem', opacity: 0.8, display: 'flex', alignItems: 'center', gap: '0.3rem', marginTop: '0.3rem' }}>
+                                        <i className="fa-solid fa-calendar" style={{ color: colors.highlight }}></i>
+                                        {formatDate(offer.date)}
+                                      </small>
+                                    </div>
+                                    <div style={{ textAlign: 'right', minWidth: '150px' }}>
+                                      <div style={{ 
+                                        color: colors.accent,
+                                        fontSize: '1.2rem',
+                                        fontWeight: '800',
+                                        marginBottom: '0.5rem'
+                                      }}>
+                                        {formatCurrency(getBidAmount(offer))}
                                       </div>
                                       <small style={{ 
-                                        color: getOfferStatus(offer) === 'accepted' ? '#22C55E' :
-                                               getOfferStatus(offer) === 'rejected' ? colors.badge : colors.highlight,
+                                        color: getBidStatus(offer) === 'accepted' ? '#22C55E' :
+                                               getBidStatus(offer) === 'rejected' ? colors.badge : colors.highlight,
                                         fontWeight: '700',
                                         fontSize: '0.85rem',
                                         textTransform: 'capitalize'
                                       }}>
-                                        {getOfferStatus(offer)}
+                                        {getBidStatus(offer)}
                                       </small>
                                     </div>
                                   </div>
+                                  
+                                  {/* ✅ NEW: Accept button for pending bids */}
+                                  {getBidStatus(offer) === 'pending' && (
+                                    <div className="mt-3">
+                                      <Button
+                                        onClick={() => handleAcceptBid(offer)}
+                                        disabled={acceptingBid}
+                                        className="w-100 hover-lift"
+                                        style={{
+                                          background: '#22C55E',
+                                          border: 'none',
+                                          color: 'white',
+                                          padding: '0.7rem 1rem',
+                                          borderRadius: '8px',
+                                          fontWeight: '700',
+                                          fontSize: '0.9rem',
+                                          transition: 'all 0.3s ease'
+                                        }}
+                                      >
+                                        {acceptingBid ? (
+                                          <>
+                                            <i className="fa-solid fa-spinner fa-spin" style={{ marginRight: '0.5rem' }}></i>
+                                            Processing...
+                                          </>
+                                        ) : (
+                                          <>
+                                            <i className="fa-solid fa-check-circle" style={{ marginRight: '0.5rem' }}></i>
+                                            Accept Bid
+                                          </>
+                                        )}
+                                      </Button>
+                                    </div>
+                                  )}
                                 </Card.Body>
                               </Card>
                             ))}

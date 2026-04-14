@@ -6,9 +6,15 @@ import Drawer from './addToCart';
 import FavoritesDrawer from './Favorites';
 import OrdersDrawer from './orders';
 import colors from '../../theme';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import NotificationDrawer from './notifications';
 function Header() {
+  const navigate = useNavigate();
+
+  const handleGoBack = () => {
+    navigate(-1);
+  };
+
   return (
     <Navbar
       expand="lg"
@@ -19,6 +25,28 @@ function Header() {
       className="custom-navbar" // Use class instead of inline styles
     >
       <Container fluid>
+        {/* Back to Browse Button - Small, Professional, No Background */}
+        <button
+          onClick={handleGoBack}
+          className="d-flex align-items-center gap-2 btn btn-link p-0 me-3"
+          style={{
+            color: colors.text,
+            textDecoration: 'none',
+            fontSize: '0.85rem',
+            fontWeight: '600',
+            border: 'none',
+            background: 'none',
+            cursor: 'pointer',
+            transition: 'opacity 0.3s ease',
+          }}
+          onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.7')}
+          onMouseLeave={(e) => (e.currentTarget.style.opacity = '1')}
+          title="Go back to previous page"
+        >
+          <i className="fa-solid fa-chevron-left" style={{ fontSize: '0.9rem' }}></i>
+          <span>Browse</span>
+        </button>
+
         <Navbar.Brand as={Link} to="/home" className="navbar-brand-custom">
           <img src={Logo} alt="Logo" className="navbar-logo" />
       

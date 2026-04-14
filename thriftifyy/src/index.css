@@ -30,6 +30,9 @@ body {
   background-color: #19535F !important;
   min-height: 60px !important;
   padding: 0.25rem 1rem !important;
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 1030 !important;
 }
 
 .navbar-brand-custom {

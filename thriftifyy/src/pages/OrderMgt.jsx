@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Search, Filter, Trash2, Package, RefreshCw, Truck, CheckCircle, Clock, XCircle, Shield, Activity } from "lucide-react";
+import ErrorNotification from "../components/ErrorNotification";
 
 export function OrderMgt() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -7,6 +8,8 @@ export function OrderMgt() {
   const [orders, setOrders] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [error, setError] = useState(null);
+  const [success, setSuccess] = useState(null);
 
   // Fetch all orders from backend
   useEffect(() => {
@@ -23,8 +26,7 @@ export function OrderMgt() {
       console.log("Fetched orders:", data);
       setOrders(data);
     } catch (err) {
-      console.error("Error fetching orders:", err);
-      alert("Failed to fetch orders");
+      setError("Failed to fetch orders. Please try again.");
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);
@@ -46,8 +48,7 @@ export function OrderMgt() {
             order.orderId === orderId ? { ...order, status: newStatus } : order
           )
         );
-      } else {
-        console.error("Failed to update order status");
+        setSuccess("Order status updated successfully!");
       }
     } catch (err) {
       console.error("Error updating status:", err);
@@ -68,15 +69,13 @@ export function OrderMgt() {
 
       if (res.ok || res.status === 204) {
         setOrders((prev) => prev.filter((order) => order.orderId !== orderId));
-        alert("Order deleted successfully!");
+        setSuccess("Order deleted successfully!");
       } else {
         const errorData = await res.text();
-        console.error("Delete failed:", errorData);
-        alert(`Failed to delete order. Status: ${res.status}`);
+        setError(`Failed to delete order. Status: ${res.status}`);
       }
     } catch (err) {
-      console.error("Error deleting order:", err);
-      alert("Network error while deleting order.");
+      setError("Network error while deleting order. Please try again.");
     }
   };
 
@@ -132,6 +131,25 @@ export function OrderMgt() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-6">
+      {/* Error and Success Notifications */}
+      <div style={{ position: 'sticky', top: 0, zIndex: 1000, backgroundColor: '#f8f9fa', padding: '0.5rem', marginBottom: '1rem', borderRadius: '8px' }}>
+        {error && (
+          <ErrorNotification 
+            message={error} 
+            type="error" 
+            onClose={() => setError(null)}
+          />
+        )}
+        {success && (
+          <ErrorNotification 
+            message={success} 
+            type="success" 
+            onClose={() => setSuccess(null)}
+            autoClose={true}
+          />
+        )}
+      </div>
+
       {/* Advanced Animated Background */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-1/4 -left-10 w-72 h-72 bg-[#19535F] rounded-full mix-blend-multiply filter blur-3xl opacity-5 animate-float-slow"></div>

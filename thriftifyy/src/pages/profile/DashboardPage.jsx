@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import api from "../../api";
 import Loader from "../../components/Loader";
+import ErrorNotification from "../../components/ErrorNotification";
 
 const theme = {
     bg: '#19535F',
@@ -27,6 +28,8 @@ const DashboardPage = () => {
   const [saveLoading, setSaveLoading] = useState(false);
   const [profileError, setProfileError] = useState("");
   const [imageUploading, setImageUploading] = useState(false);
+  const [error, setError] = useState(null);
+  const [success, setSuccess] = useState(null);
 
   // 🔥 ENHANCED: Smart image URL handler
   const getProfileImageUrl = (imagePath) => {
@@ -92,7 +95,7 @@ const DashboardPage = () => {
           localStorage.removeItem('user');
           navigate('/login');
         } else {
-          alert("Failed to load dashboard. Please try again.");
+          setError("Failed to load dashboard. Please try again.");
         }
       } finally {
         setLoading(false);
@@ -152,7 +155,7 @@ const DashboardPage = () => {
           user: { ...prev.user, profileImage: imageUrl }
         }));
 
-        alert("✅ Profile image updated successfully!");
+        setSuccess("Profile image updated successfully!");
       }
     } catch (err) {
       console.error("❌ Error uploading image:", err);
@@ -193,7 +196,7 @@ const DashboardPage = () => {
           user: { ...prev.user, profileImage: "" }
         }));
 
-        alert("✅ Profile image removed successfully!");
+        setSuccess("Profile image removed successfully!");
       }
     } catch (err) {
       console.error("❌ Error removing image:", err);
@@ -242,7 +245,7 @@ const DashboardPage = () => {
         localStorage.setItem('user', JSON.stringify(newUserData));
         
         setIsEditingProfile(false);
-        alert("✅ Profile updated successfully!");
+        setSuccess("Profile updated successfully!");
       }
     } catch (err) {
       console.error("❌ Error updating profile:", err);
@@ -320,14 +323,13 @@ const DashboardPage = () => {
             }
           }));
           
-          alert("✅ Listing deleted successfully!");
+          setSuccess("Listing deleted successfully!");
         } else {
-          alert("❌ Failed to delete listing: " + (response.data.message || "Unknown error"));
+          setError("Failed to delete listing: " + (response.data.message || "Unknown error"));
         }
       } catch (err) {
-        console.error("Error deleting product:", err);
         const errorMessage = err.response?.data?.message || err.message || "Network error";
-        alert("❌ Failed to delete listing: " + errorMessage);
+        setError("Failed to delete listing: " + errorMessage);
       }
     }
   };
@@ -338,7 +340,7 @@ const DashboardPage = () => {
       const bidId = notification.relatedBidId;
       
       if (!bidId) {
-        alert("No offer ID found for this notification!");
+        setError("No bid ID found for this notification!");
         return;
       }
 
@@ -368,22 +370,21 @@ const DashboardPage = () => {
                   // Use server-returned acceptedAmount when available to avoid stale values
                   bidAmount: acceptedAmount,
                   message: status === 'accepted' 
-                    ? `You accepted the offer of $${acceptedAmount} for ${notification.productName}`
-                    : `You declined the offer of $${acceptedAmount} for ${notification.productName}`,
+                    ? `You accepted the bid of $${acceptedAmount} for ${notification.productName}`
+                    : `You declined the bid of $${acceptedAmount} for ${notification.productName}`,
                   updatedAt: new Date().toISOString()
                 }
               : notif
           )
         }));
 
-        alert(`✅ Offer ${status} successfully!`);
+        setSuccess(`Bid \${status} successfully!`);
       } else {
-        alert(response.data.message || "Failed to update offer status");
+        setError(response.data.message || "Failed to update bid status");
       }
     } catch (err) {
-      console.error("❌ Failed to update offer status:", err);
-      console.error("Error details:", err.response?.data);
-      alert(err.response?.data?.message || "Failed to update offer status. Please check console for details.");
+      const errorMsg = err.response?.data?.message || "Failed to update bid status. Please try again.";
+      setError(errorMsg);
     }
   };
 
@@ -400,14 +401,12 @@ const DashboardPage = () => {
           ...prev,
           notifications: prev.notifications.filter(n => n._id !== notificationId)
         }));
-        alert('✅ Notification deleted');
+        setSuccess('Notification deleted');
       } else {
-        console.error('Failed to delete notification', response.data);
-        alert('Failed to delete notification');
+        setError('Failed to delete notification');
       }
     } catch (err) {
-      console.error('Error deleting notification:', err);
-      alert('Failed to delete notification. See console for details.');
+      setError('Failed to delete notification. Please try again.');
     }
   };
 
@@ -460,6 +459,27 @@ const DashboardPage = () => {
 
   return (
     <div className="min-h-screen" style={{ background: `linear-gradient(135deg, ${theme.bg}10 0%, ${theme.accent}10 100%)` }}>
+      {/* Error and Success Notifications */}
+      <div style={{ position: 'sticky', top: '68px', zIndex: 1020, backgroundColor: '#fff', padding: '1rem 0' }}>
+        <div style={{ maxWidth: '1280px', margin: '0 auto', paddingLeft: '1rem', paddingRight: '1rem' }}>
+          {error && (
+            <ErrorNotification 
+              message={error} 
+              type="error" 
+              onClose={() => setError(null)}
+            />
+          )}
+          {success && (
+            <ErrorNotification 
+              message={success} 
+              type="success" 
+              onClose={() => setSuccess(null)}
+              autoClose={true}
+            />
+          )}
+        </div>
+      </div>
+
       {/* Animated Background */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-1/4 -left-10 w-72 h-72 bg-[#19535F] rounded-full mix-blend-multiply filter blur-3xl opacity-5 animate-float-slow"></div>
@@ -988,6 +1008,23 @@ const BidsList = ({ bids, theme }) => {
     return index === self.findIndex(b => b._id === bid._id);
   });
 
+  const getStatusMessage = (status) => {
+    switch(status?.toLowerCase()) {
+      case 'pending':
+        return '⏳ Waiting for seller response';
+      case 'accepted':
+        return '✅ Your bid was accepted at this special price!';
+      case 'rejected':
+        return 'Your bid was rejected by the seller';
+      case 'won':
+        return '🎉 Congratulations! You won!';
+      case 'lost':
+        return 'Another bid was higher';
+      default:
+        return 'Status pending';
+    }
+  };
+
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
       {uniqueBids.map((bid, index) => {
@@ -1024,6 +1061,9 @@ const BidsList = ({ bids, theme }) => {
                 <span className="font-medium">Your bid:</span> ${bidAmount || "N/A"}
               </p>
               <p className="text-sm" style={{ color: theme.accent }}>
+                <span className="font-medium">Status:</span> {getStatusMessage(bidStatus)}
+              </p>
+              <p className="text-sm" style={{ color: theme.bg }}>
                 <span className="font-medium">Placed:</span> {placedAt ? new Date(placedAt).toLocaleString() : "N/A"}
               </p>
             </div>
@@ -1113,7 +1153,7 @@ const NotificationsList = ({ notifications, onUpdateBidStatus, onDelete, theme }
                   <div className="flex items-center justify-between mb-2">
                     <h4 className="font-bold" style={{ color: theme.bg }}>
                       {notif.title || 
-                       (notif.type === "bid" ? `New Offer: $${notif.bidAmount || '0'}` : 
+                       (notif.type === "bid" ? `New Bid: $${notif.bidAmount || '0'}` : 
                         notif.type === "bid_status" ? notif.title : 
                         notif.type === "item_sold" ? "Item Sold" :
                         "Notification")}
@@ -1139,7 +1179,7 @@ const NotificationsList = ({ notifications, onUpdateBidStatus, onDelete, theme }
                     {new Date(notif.createdAt).toLocaleString()}
                   </p>
 
-                  {/* Show additional details for offer-related notifications */}
+                  {/* Show additional details for bid-related notifications */}
                   {(notif.type === "bid" || notif.type === "bid_status") && (
                     <div className="mt-3 p-3 rounded-xl" style={{ background: `${theme.bg}05` }}>
                       <p className="text-sm" style={{ color: theme.bg }}>
@@ -1171,14 +1211,14 @@ const NotificationsList = ({ notifications, onUpdateBidStatus, onDelete, theme }
                 className="flex-1 py-2 rounded-xl transition-all duration-300 hover:scale-105 text-sm font-medium"
                 style={{ background: `linear-gradient(135deg, ${theme.accent}, #2D936C)`, color: 'white' }}
               >
-                Accept Offer
+                Accept Bid
               </button>
               <button
                 onClick={() => onUpdateBidStatus(notif, "rejected")}
                 className="flex-1 py-2 rounded-xl transition-all duration-300 hover:scale-105 text-sm font-medium"
                 style={{ background: theme.badge, color: 'white' }}
               >
-                Decline Offer
+                Decline Bid
               </button>
             </div>
           )}

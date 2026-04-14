@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { Container, Row, Col, Card, Button, Form, Alert } from 'react-bootstrap';
 import api from '../api';
+import ErrorNotification from '../components/ErrorNotification';
 import colors from '../theme';
 
 const CheckoutPage = () => {
@@ -15,6 +16,8 @@ const CheckoutPage = () => {
     const [paymentStatus, setPaymentStatus] = useState(null);
     const [paymentMessage, setPaymentMessage] = useState('');
     const [orderDetails, setOrderDetails] = useState(null);
+    const [error, setError] = useState(null);
+    const [success, setSuccess] = useState(null);
     
     // Form states
     const [shippingAddress, setShippingAddress] = useState({
@@ -29,8 +32,8 @@ const CheckoutPage = () => {
     useEffect(() => {
         const currentUser = JSON.parse(localStorage.getItem('user'));
         if (!currentUser) {
-            alert('Please log in to checkout');
-            navigate('/login');
+            setError('Please log in to checkout');
+            setTimeout(() => navigate('/login'), 2000);
             return;
         }
         setUser(currentUser);
@@ -110,6 +113,33 @@ const CheckoutPage = () => {
             
             const response = await api.post("/orders", orderData);
             console.log("✅ Order created:", response.data);
+
+            // ✅ Ensure /admin/payment is hit in Stripe flow for backend payment logs
+            if (paymentMethod === "stripe") {
+                try {
+                    const createdOrder = response.data?.data || response.data || {};
+                    const orderId = createdOrder?._id || createdOrder?.orderId;
+
+                    const paymentData = {
+                        orderId: orderId,
+                        status: "Completed",
+                        totalAmount: orderData.totalAmount,
+                        paymentMethod: "stripe",
+                        customerEmail: orderData.customerEmail,
+                        productName: orderData.productName,
+                        buyerName: orderData.buyerName,
+                        sellerName: orderData.sellerName,
+                        price: orderData.price,
+                    };
+
+                    console.log("💳 Calling /admin/payment for Stripe:", paymentData);
+                    await api.post('/admin/payment', paymentData);
+                    console.log("✅ /admin/payment hit successfully for Stripe");
+                } catch (paymentError) {
+                    console.error("⚠️ Stripe payment log route call failed:", paymentError);
+                }
+            }
+
             return response.data;
         } catch (error) {
             console.error("❌ Order creation error:", error);
@@ -202,8 +232,7 @@ const CheckoutPage = () => {
                 setProducts(itemsWithDetails.filter(item => item.price > 0));
             }
         } catch (error) {
-            console.error('Error fetching cart:', error);
-            alert('Failed to load cart items');
+            setError('Failed to load cart items. Please try again.');
         } finally {
             setLoading(false);
         }
@@ -229,12 +258,12 @@ const CheckoutPage = () => {
         // Validate form
         if (!shippingAddress.fullName || !shippingAddress.address || !shippingAddress.city || 
             !shippingAddress.state || !shippingAddress.zipCode) {
-            alert('Please fill in all shipping details');
+            setError('Please fill in all shipping details');
             return;
         }
 
         if (products.length === 0) {
-            alert('No products to checkout');
+            setError('No products to checkout');
             return;
         }
 
@@ -296,9 +325,8 @@ const CheckoutPage = () => {
             localStorage.removeItem('cart');
 
         } catch (error) {
-            console.error('Cash on Delivery checkout error:', error);
-            console.error('Error details:', error.response?.data || error.message);
-            alert('Failed to place order: ' + (error.response?.data?.message || error.message || 'Please try again.'));
+            const errorMsg = error.response?.data?.message || error.message || 'Failed to place order. Please try again.';
+            setError('Failed to place order: ' + errorMsg);
             setProcessing(false);
         }
     };
@@ -309,12 +337,12 @@ const CheckoutPage = () => {
         // Validate form
         if (!shippingAddress.fullName || !shippingAddress.address || !shippingAddress.city || 
             !shippingAddress.state || !shippingAddress.zipCode) {
-            alert('Please fill in all shipping details');
+            setError('Please fill in all shipping details');
             return;
         }
 
         if (products.length === 0) {
-            alert('No products to checkout');
+            setError('No products to checkout');
             return;
         }
 
@@ -357,8 +385,8 @@ const CheckoutPage = () => {
                 throw new Error('No checkout URL received');
             }
         } catch (error) {
-            console.error('Stripe checkout error:', error);
-            alert('Failed to process payment. Please try again.');
+            const errorMsg = error.response?.data?.message || error.message || 'Failed to process payment. Please try again.';
+            setError(errorMsg);
             setProcessing(false);
         }
     };
@@ -641,6 +669,27 @@ const CheckoutPage = () => {
 
     return (
         <Container fluid style={{ background: colors.light, minHeight: '100vh', padding: '2rem 0' }}>
+            {/* Error and Success Notifications */}
+            <div style={{ position: 'sticky', top: 0, zIndex: 1000, backgroundColor: '#fff', padding: '1rem 0' }}>
+                <Container>
+                    {error && (
+                        <ErrorNotification 
+                            message={error} 
+                            type="error" 
+                            onClose={() => setError(null)}
+                        />
+                    )}
+                    {success && (
+                        <ErrorNotification 
+                            message={success} 
+                            type="success" 
+                            onClose={() => setSuccess(null)}
+                            autoClose={true}
+                        />
+                    )}
+                </Container>
+            </div>
+
             <Container>
                 <Row className="g-4">
                     {/* Order Summary */}

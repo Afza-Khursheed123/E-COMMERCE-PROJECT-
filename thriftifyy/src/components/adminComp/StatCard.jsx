@@ -1,7 +1,7 @@
 import React from "react";
-import { Box, TrendingUp, TrendingDown, Sparkles } from "lucide-react";
+import { TrendingUp, TrendingDown } from "lucide-react";
 
-export function StatCard({ title, value,  trend, trendUp }) {
+export function StatCard({ title, value, trend, trendUp, icon: Icon }) {
   return (
     <div className="group relative">
       {/* Animated background gradient */}
@@ -50,7 +50,7 @@ export function StatCard({ title, value,  trend, trendUp }) {
         <div className="absolute bottom-0 left-0 w-0 h-1 bg-gradient-to-r from-[#D7C9AA] to-transparent group-hover:w-full transition-all duration-700 rounded-full"></div>
       </div>
 
-      <style jsx>{`
+      <style>{`
         @keyframes slide-in-up {
           from {
             opacity: 0;

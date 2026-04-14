@@ -70,7 +70,7 @@ function About() {
                     <strong>Swapping System:</strong> Exchange goods directly with other users — no money needed!
                 </li>
                 <li>
-                    <strong>Bidding & Offers:</strong> Place or accept bids on items to find the best deal.
+                    <strong>Bidding System:</strong> Place or accept bids on items to find the best deal.
                 </li>
                 <li>
                     <strong>WhatsApp Chat Integration:</strong> Negotiate directly through WhatsApp for convenience and privacy.

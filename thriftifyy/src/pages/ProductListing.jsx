@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../api";
 import Loader from "../components/Loader";
+import ErrorNotification from "../components/ErrorNotification";
 import colors from "../theme";
 import { Container, Row, Col, Card, Button, Form } from "react-bootstrap";
 
@@ -25,6 +26,8 @@ const ProductListingPage = () => {
   });
 
   const [imagePreview, setImagePreview] = useState([]);
+  const [error, setError] = useState(null);
+  const [success, setSuccess] = useState(null);
   const user = JSON.parse(localStorage.getItem("user"));
 
   useEffect(() => {
@@ -78,7 +81,10 @@ const ProductListingPage = () => {
   // ✅ UPDATED: No required field validation - allow optional fields
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!user) return alert("Please log in to list an item.");
+    if (!user) {
+      setError("Please log in to list an item.");
+      return;
+    }
 
     setLoading(true);
     try {
@@ -94,7 +100,8 @@ const ProductListingPage = () => {
 
       // ✅ Allow submission with minimal required fields
       if (!formData.name || !formData.categoryId) {
-        return alert("Please provide at least product name and category.");
+        setError("Please provide at least product name and category.");
+        return;
       }
 
       const productData = {
@@ -115,11 +122,11 @@ const ProductListingPage = () => {
       };
 
       const res = await api.post("/productlisting", productData);
-      alert("✅ Product listed successfully!");
-      navigate(`/products/${res.data._id}`);
+      setSuccess("Product listed successfully!");
+      setTimeout(() => navigate(`/products/${res.data._id}`), 1500);
     } catch (err) {
-      console.error("Listing error:", err);
-      alert("Failed to list product. Please try again.");
+      const errorMsg = err.response?.data?.message || "Failed to list product. Please try again.";
+      setError(errorMsg);
     } finally {
       setLoading(false);
     }
@@ -129,6 +136,27 @@ const ProductListingPage = () => {
 
   return (
     <div style={{ minHeight: "100vh", background: colors.text, paddingTop: "2rem", paddingBottom: "2rem" }}>
+      {/* Error and Success Notifications */}
+      <div style={{ position: 'sticky', top: 0, zIndex: 1000, backgroundColor: '#fff', padding: '0.5rem 0' }}>
+        <Container>
+          {error && (
+            <ErrorNotification 
+              message={error} 
+              type="error" 
+              onClose={() => setError(null)}
+            />
+          )}
+          {success && (
+            <ErrorNotification 
+              message={success} 
+              type="success" 
+              onClose={() => setSuccess(null)}
+              autoClose={true}
+            />
+          )}
+        </Container>
+      </div>
+
       <Container>
         {/* Header Section with Animation */}
         <Row className="mb-5">
@@ -502,7 +530,7 @@ const ProductListingPage = () => {
                           onChange={handleInputChange}
                           style={{ cursor: "pointer" }}
                         />
-                        <small className="text-muted d-block mt-1">Allow buyers to place offers on this item</small>
+                        <small className="text-muted d-block mt-1">Allow buyers to place bids on this item</small>
                       </Col>
                       <Col md={6}>
                         <Form.Check

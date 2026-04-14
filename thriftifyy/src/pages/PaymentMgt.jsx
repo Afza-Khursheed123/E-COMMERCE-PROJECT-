@@ -1,11 +1,14 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { DollarSign, TrendingUp, Clock, Trash2, RefreshCw, CreditCard, Shield, Activity, BarChart3, Wallet } from "lucide-react";
+import ErrorNotification from "../components/ErrorNotification";
 
 export function PaymentMgt() {
   const [payments, setPayments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [statusFilter, setStatusFilter] = useState("all");
+  const [error, setError] = useState(null);
+  const [success, setSuccess] = useState(null);
 
   // Fetch all payments (from Orders collection)
   const fetchPayments = async (isRefresh = false) => {
@@ -25,7 +28,7 @@ export function PaymentMgt() {
       setPayments(formattedData);
     } catch (err) {
       console.error("Error fetching payments:", err);
-      alert("Failed to load payments");
+      setError(err.message || "Failed to load payments");
     } finally {
       setLoading(false);
       setIsRefreshing(false);
@@ -84,12 +87,13 @@ export function PaymentMgt() {
             p.orderId === orderId ? { ...p, status: newStatus } : p
           )
         );
+        setSuccess("Payment status updated successfully!");
       } else {
-        alert("Failed to update status");
+        setError("Failed to update status");
       }
     } catch (err) {
       console.error("Error updating status:", err);
-      alert("Network error while updating status");
+      setError(err.message || "Network error while updating status");
     }
   };
 
@@ -105,14 +109,14 @@ export function PaymentMgt() {
       
       if (res.ok || res.status === 204) {
         setPayments((prev) => prev.filter((p) => p.orderId !== orderId));
-        alert("Order deleted successfully!");
+        setSuccess("Order deleted successfully!");
       } else {
         const errorData = await res.json();
-        alert(`Failed to delete order: ${errorData.message || "Unknown error"}`);
+        setError(errorData.message || "Failed to delete order");
       }
     } catch (err) {
       console.error("Error deleting order:", err);
-      alert("Network error while deleting order");
+      setError(err.message || "Network error while deleting order");
     }
   };
 
@@ -191,6 +195,12 @@ export function PaymentMgt() {
       </div>
 
       <div className="relative z-10 max-w-7xl mx-auto">
+        {/* Notification Container */}
+        <div style={{ position: 'sticky', top: 0, zIndex: 1000 }}>
+          {error && <ErrorNotification message={error} type="error" onClose={() => setError(null)} />}
+          {success && <ErrorNotification message={success} type="success" autoClose={true} onClose={() => setSuccess(null)} />}
+        </div>
+
         {/* Header Section */}
         <div className="flex items-center justify-between mb-8 animate-slide-down">
           <div className="flex items-center gap-4">

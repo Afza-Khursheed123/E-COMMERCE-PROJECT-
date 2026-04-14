@@ -5,6 +5,7 @@ import Offcanvas from 'react-bootstrap/Offcanvas';
 import Badge from 'react-bootstrap/Badge';
 import colors from '../../theme';
 import api from '../../api';
+import ErrorNotification from '../../components/ErrorNotification';
 
 function Cart({ name, ...props }) {
     const [show, setShow] = useState(false);
@@ -12,6 +13,8 @@ function Cart({ name, ...props }) {
     const [loading, setLoading] = useState(false);
     const [total, setTotal] = useState(0);
     const [selectedItems, setSelectedItems] = useState(new Set());
+    const [error, setError] = useState(null);
+    const [success, setSuccess] = useState(null);
     const navigate = useNavigate();
 
     // ✅ Get current user
@@ -37,7 +40,7 @@ function Cart({ name, ...props }) {
     const handleClose = () => setShow(false);
     const handleShow = () => {
         if (!currentUser) {
-            alert("⚠️ Please log in to view your cart.");
+            setError("Please log in to view your cart.");
             return;
         }
         setShow(true);
@@ -56,7 +59,7 @@ function Cart({ name, ...props }) {
             const itemsWithDetails = await Promise.all(
                 res.data.items.map(async (item) => {
                     try {
-                        // Include userId so product API can return user-specific fields (acceptedOffer/userAcceptedOffer)
+                        // Include userId so product API can return user-specific fields (acceptedBid/useracceptedBid)
                         const productRes = await api.get(`/products/${item.productId}?userId=${currentUser._id || currentUser.id}`);
 
                         // Prefer the price stored in the cart item (server-updated finalPrice) to avoid stale product.price
@@ -167,7 +170,7 @@ function Cart({ name, ...props }) {
             fetchCartCount(); // Refresh the count
         } catch (error) {
             console.error("Update cart error:", error);
-            alert("❌ Failed to update cart");
+            setError("Failed to update cart");
         }
     };
 
@@ -206,7 +209,7 @@ function Cart({ name, ...props }) {
     // ✅ Proceed to checkout with selected items
     const proceedToCheckout = () => {
         if (selectedItems.size === 0) {
-            alert("🛒 Please select at least one item to checkout!");
+            setError("Please select at least one item to checkout!");
             return;
         }
 

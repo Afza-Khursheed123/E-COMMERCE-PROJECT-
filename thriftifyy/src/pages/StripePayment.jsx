@@ -299,10 +299,13 @@ export default function StripePayment() {
 
     } catch (error) {
       console.error("❌ Checkout error:", error);
-      alert(
+      // Note: StripePayment component uses Message component for UI notifications
+      // For now, logging the error and informing user through the Message component
+      setMessage(
         "We couldn't start the checkout process. Please check your connection and try again.\n\n" +
         "If the problem continues, contact our support team."
       );
+      setMessageType("canceled");
       setLoading(false);
     }
   };
