@@ -1,0 +1,33 @@
+
+name: E-Commerce CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build backend image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./node-app
+          push: false
+          tags: ecommerce-backend:test
+
+      - name: Build frontend image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./thriftifyy
+          push: false
+          tags: ecommerce-frontend:test
