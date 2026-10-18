@@ -12,6 +12,7 @@ import {
   Filter,
   RefreshCw
 } from "lucide-react";
+import { apiFetch } from "../api";
 
 export function ComplaintMgt() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -37,7 +38,7 @@ export function ComplaintMgt() {
     else setLoading(true);
     
     try {
-      const res = await fetch("http://localhost:3000/admin/complain");
+      const res = await apiFetch("/admin/complain");
       const data = await res.json();
       if (data.success && Array.isArray(data.complains)) {
         setComplaints(data.complains);
@@ -60,7 +61,7 @@ export function ComplaintMgt() {
   const handleAddComplaint = async (e) => {
     e.preventDefault();
     try {
-      const res = await fetch("http://localhost:3000/admin/complain", {
+      const res = await apiFetch("/admin/complain", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(newComplaint),
@@ -90,7 +91,7 @@ export function ComplaintMgt() {
   // 🔵 Change status
   const handleStatusChange = async (_id, newStatus) => {
     try {
-      const res = await fetch(`http://localhost:3000/admin/complain/${_id}`, {
+      const res = await apiFetch(`/admin/complain/${_id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: newStatus }),
@@ -109,7 +110,7 @@ export function ComplaintMgt() {
   // 🔴 Change priority
   const handlePriorityChange = async (_id, newPriority) => {
     try {
-      const res = await fetch(`http://localhost:3000/admin/complain/${_id}`, {
+      const res = await apiFetch(`/admin/complain/${_id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ priority: newPriority }),

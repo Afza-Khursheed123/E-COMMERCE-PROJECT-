@@ -29,6 +29,7 @@ import {
   Legend,
   ResponsiveContainer,
 } from "recharts";
+import { apiFetch } from "../api";
 
 export function Dashboard() {
   const [dashboardData, setDashboardData] = useState({
@@ -70,7 +71,7 @@ export function Dashboard() {
 
     try {
       // Replace with your actual API endpoint
-      const response = await fetch("http://localhost:3000/admin/dashboard", {
+      const response = await apiFetch("/admin/dashboard", {
         headers: {
           "Content-Type": "application/json",
         },
@@ -98,10 +99,10 @@ export function Dashboard() {
     try {
       // Fetch complaints, orders, payments and users from backend
       const [complaintsRes, ordersRes, paymentsRes, usersRes] = await Promise.all([
-        fetch("http://localhost:3000/admin/complain"),
-        fetch("http://localhost:3000/admin/orders"),
-        fetch("http://localhost:3000/admin/payment"),
-        fetch("http://localhost:3000/admin/users"),
+        apiFetch("/admin/complain"),
+        apiFetch("/admin/orders"),
+        apiFetch("/admin/payment"),
+        apiFetch("/admin/users"),
       ]);
 
       const complaintsJson = await complaintsRes.json();

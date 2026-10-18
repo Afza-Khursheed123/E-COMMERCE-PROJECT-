@@ -13,6 +13,7 @@ import {
   XIcon,
 } from "lucide-react";
 import ErrorNotification from "../../components/ErrorNotification";
+import { apiFetch } from "../../api";
 
 export function UserComplaintPage() {
   const [showForm, setShowForm] = useState(false);
@@ -38,7 +39,7 @@ export function UserComplaintPage() {
   // 🟢 Fetch only current user's complaints
   const fetchUserComplaints = async () => {
     try {
-      const res = await fetch("http://localhost:3000/admin/complain");
+      const res = await apiFetch("/admin/complain");
       const data = await res.json();
       if (data.success && Array.isArray(data.complains)) {
         const userComplaints = data.complains.filter(
@@ -70,7 +71,7 @@ export function UserComplaintPage() {
         date: new Date().toISOString().split("T")[0],
       };
 
-      const res = await fetch("http://localhost:3000/admin/complain", {
+      const res = await apiFetch("/admin/complain", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(complaintData),

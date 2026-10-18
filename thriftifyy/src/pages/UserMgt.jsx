@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Search, MoreVertical, UserCheck, UserX, Plus, Users, Shield, Activity } from "lucide-react";
 import ErrorNotification from "../components/ErrorNotification";
+import { apiFetch } from "../api";
 
 export function UserMgt() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -23,7 +24,7 @@ export function UserMgt() {
   // ✅ Fetch users from backend
   useEffect(() => {
     setIsLoading(true);
-    fetch("http://localhost:3000/admin/users")
+    apiFetch("/admin/users")
       .then((res) => res.json())
       .then((data) => {
         console.log("Fetched users:", data);
@@ -60,7 +61,7 @@ export function UserMgt() {
     };
 
     try {
-      const res = await fetch("http://localhost:3000/admin/users", {
+      const res = await apiFetch("/admin/users", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(userToAdd),
@@ -95,7 +96,7 @@ export function UserMgt() {
   // ✅ Toggle status
   const toggleStatus = async (id) => {
     try {
-      const res = await fetch(`http://localhost:3000/admin/users/status/${id}`, {
+      const res = await apiFetch(`/admin/users/status/${id}`, {
         method: "PATCH",
       });
 
@@ -121,7 +122,7 @@ export function UserMgt() {
   // ✅ Delete user
   const deleteUser = async (id) => {
     try {
-      await fetch(`http://localhost:3000/admin/users/${id}`, {
+      await apiFetch(`/admin/users/${id}`, {
         method: "DELETE",
       });
       setUsers((prev) => prev.filter((user) => user.id !== id));

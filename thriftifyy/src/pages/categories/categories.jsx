@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
-import axios from "axios";
+import api from "../../api";
 import Card from 'react-bootstrap/Card';
 import Col from 'react-bootstrap/Col';
 import Row from 'react-bootstrap/Row';
@@ -25,7 +25,7 @@ function Categories() {
         const fetchCategories = async () => {
             try {
                 console.log("🔄 Fetching categories from API...");
-                const res = await axios.get('http://localhost:3000/category');
+                const res = await api.get('/category');
                 console.log("✅ Categories API response:", res.data);
                 
                 if (res.data && res.data.length > 0) {
@@ -605,7 +605,7 @@ function CategoryPage() {
         const fetchCategoryData = async () => {
             try {
                 console.log(`🔄 Fetching products for category: ${categoryName}`);
-                const res = await axios.get(`http://localhost:3000/category/${categoryName}`);
+                const res = await api.get(`/category/${categoryName}`);
                 console.log("✅ Category products response:", res.data);
                 setData(res.data);
                 setFiltered(res.data.results || []);

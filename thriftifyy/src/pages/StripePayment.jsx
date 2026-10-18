@@ -2,7 +2,7 @@
 // Purpose: Stripe payment page with checkout button
 
 import React, { useState, useEffect } from "react";
-import axios from "axios";
+import api from "../api";
 import { Container, Row, Col } from "react-bootstrap";
 
 // Theme colors matching your dashboard
@@ -238,9 +238,7 @@ export default function StripePayment() {
     try {
       console.log("🔍 Verifying payment...");
       
-      const response = await axios.get(
-        `http://localhost:3000/api/stripe/verify-payment/${sessionId}`
-      );
+      const response = await api.get(`/stripe/verify-payment/${sessionId}`);
       
       console.log("✅ Payment verified:", response.data);
 
@@ -277,8 +275,8 @@ export default function StripePayment() {
       const userId = localStorage.getItem('userId') || null;
 
       // Create checkout session
-      const response = await axios.post(
-        'http://localhost:3000/api/stripe/create-checkout-session',
+      const response = await api.post(
+        '/stripe/create-checkout-session',
         {
           amount: 2000, // $20.00 in cents
           customerEmail: userEmail,

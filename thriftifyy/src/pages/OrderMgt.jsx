@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Search, Filter, Trash2, Package, RefreshCw, Truck, CheckCircle, Clock, XCircle, Shield, Activity } from "lucide-react";
 import ErrorNotification from "../components/ErrorNotification";
+import { apiFetch } from "../api";
 
 export function OrderMgt() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -21,7 +22,7 @@ export function OrderMgt() {
     else setIsLoading(true);
 
     try {
-      const res = await fetch("http://localhost:3000/admin/orders");
+      const res = await apiFetch("/admin/orders");
       const data = await res.json();
       console.log("Fetched orders:", data);
       setOrders(data);
@@ -36,7 +37,7 @@ export function OrderMgt() {
   // Function to update order status
   const handleStatusChange = async (orderId, newStatus) => {
     try {
-      const res = await fetch(`http://localhost:3000/admin/orders/${orderId}`, {
+      const res = await apiFetch(`/admin/orders/${orderId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: newStatus }),
@@ -60,7 +61,7 @@ export function OrderMgt() {
     if (!window.confirm("Are you sure you want to delete this order?")) return;
 
     try {
-      const res = await fetch(`http://localhost:3000/admin/orders/${orderId}`, {
+      const res = await apiFetch(`/admin/orders/${orderId}`, {
         method: "DELETE",
         headers: { "Content-Type": "application/json" }
       });

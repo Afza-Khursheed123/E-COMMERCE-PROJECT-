@@ -42,9 +42,9 @@ const DashboardPage = () => {
       return imagePath;
     }
     
-    // Relative path - construct full URL
+    // Relative paths are served through Nginx's uploads proxy.
     if (imagePath.startsWith('/uploads/')) {
-      return `http://localhost:3000${imagePath}`;
+      return imagePath;
     }
     
     // Fallback

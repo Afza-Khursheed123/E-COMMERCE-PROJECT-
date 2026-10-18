@@ -47,7 +47,29 @@ app.get('/api/debug/stripe', (req, res) => {
 });
 
 // Middleware
-app.use(cors({ origin: "http://localhost:5173", credentials: true }));
+const allowedOrigins = new Set([
+  "http://localhost:5173",
+  "http://localhost:8080",
+]);
+
+app.use(cors({
+  origin(origin, callback) {
+    if (!origin || allowedOrigins.has(origin)) return callback(null, true);
+    return callback(new Error("Origin is not allowed by CORS"));
+  },
+  credentials: true,
+}));
+
+// Do not expose diagnostic endpoints in the deployed application.
+app.use([
+  "/api/debug",
+  "/api/stripe/debug",
+  "/api/orders/debug",
+  "/debug-uploads",
+  "/test-upload",
+], (_req, res) => {
+  res.sendStatus(404);
+});
 
 app.use((req, res, next) => {
   if (req.originalUrl === '/api/stripe/webhook') {
@@ -65,9 +87,6 @@ app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 // Debug Middleware — to check incoming requests
 app.use((req, res, next) => {
   console.log("➡️", req.method, req.url);
-  if (req.method !== 'GET') {
-    console.log("📦 Body:", req.body);
-  }
   next();
 });
 

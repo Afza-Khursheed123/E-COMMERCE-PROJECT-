@@ -153,7 +153,7 @@ const CheckoutPage = () => {
         try {
             console.log("🔍 Verifying payment...");
             
-            const response = await api.get(`/api/stripe/verify-payment/${sessionId}`);
+            const response = await api.get(`/stripe/verify-payment/${sessionId}`);
             console.log("✅ Payment verified:", response.data);
 
             if (response.data.success && response.data.paymentStatus === 'paid') {
@@ -357,7 +357,7 @@ const CheckoutPage = () => {
             console.log("📦 Products to checkout:", products);
 
             // Create Stripe checkout session with proper data
-            const response = await api.post('/api/stripe/create-checkout-session', {
+            const response = await api.post('/stripe/create-checkout-session', {
                 amount: Math.round(total * 100), // Convert to cents
                 customerEmail: user.email,
                 productName: products.length === 1 ? products[0].productName : `Order with ${products.length} items`,

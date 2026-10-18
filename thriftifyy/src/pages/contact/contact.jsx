@@ -4,8 +4,8 @@ import Form from 'react-bootstrap/Form';
 import Row from 'react-bootstrap/Row';
 import InputGroup from 'react-bootstrap/InputGroup';
 import { useState } from 'react';
-import axios from 'axios';
 import colors from '../../theme';
+import api from '../../api';
 
 function Contact() {
   const [validated, setValidated] = useState(false);
@@ -43,7 +43,7 @@ function Contact() {
     setSubmitStatus(null);
 
     try {
-      const response = await axios.post('http://localhost:3000/contact/submit', formData);
+      const response = await api.post('/contact/submit', formData);
       
       if (response.data.success) {
         setSubmitStatus({

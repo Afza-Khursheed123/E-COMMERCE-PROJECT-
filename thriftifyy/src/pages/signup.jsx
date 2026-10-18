@@ -4,6 +4,7 @@ import Form from 'react-bootstrap/Form';
 import { Button, Card } from 'react-bootstrap';
 import { Link } from 'react-router-dom';
 import colors from '../theme';
+import { apiFetch } from '../api';
 
 const Signup = () => {
   const navigate = useNavigate();
@@ -45,7 +46,7 @@ const Signup = () => {
     setLoading(true);
 
     try {
-      const res = await fetch("http://localhost:3000/signup", {
+      const res = await apiFetch("/signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData),

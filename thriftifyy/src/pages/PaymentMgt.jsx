@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { DollarSign, TrendingUp, Clock, Trash2, RefreshCw, CreditCard, Shield, Activity, BarChart3, Wallet } from "lucide-react";
 import ErrorNotification from "../components/ErrorNotification";
+import { apiFetch } from "../api";
 
 export function PaymentMgt() {
   const [payments, setPayments] = useState([]);
@@ -16,7 +17,7 @@ export function PaymentMgt() {
     else setLoading(true);
     
     try {
-      const res = await fetch("http://localhost:3000/admin/payment");
+      const res = await apiFetch("/admin/payment");
       const data = await res.json();
       
       const formattedData = data.map((p) => ({
@@ -75,7 +76,7 @@ export function PaymentMgt() {
   // Update payment status
   const handleStatusChange = async (orderId, newStatus) => {
     try {
-      const res = await fetch(`http://localhost:3000/admin/payment/${orderId}`, {
+      const res = await apiFetch(`/admin/payment/${orderId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: newStatus }),
@@ -102,7 +103,7 @@ export function PaymentMgt() {
     if (!window.confirm("Are you sure you want to delete this order? This action cannot be undone.")) return;
 
     try {
-      const res = await fetch(`http://localhost:3000/admin/payment/${orderId}`, { 
+      const res = await apiFetch(`/admin/payment/${orderId}`, {
         method: "DELETE",
         headers: { "Content-Type": "application/json" }
       });
