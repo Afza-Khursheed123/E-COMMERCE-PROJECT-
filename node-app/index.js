@@ -50,6 +50,7 @@ app.get('/api/debug/stripe', (req, res) => {
 const allowedOrigins = new Set([
   "http://localhost:5173",
   "http://localhost:8080",
+    "http://13.206.147.155",
 ]);
 
 app.use(cors({
