@@ -376,27 +376,7 @@ export default function stripeRoutes(db) {
   });
 
   // DEBUG ROUTE: Check what's in the database
-  router.get("/debug/collections", async (req, res) => {
-    try {
-      const orders = await db.collection('Orders').find({}).toArray();
-      const payments = await db.collection('Payments').find({}).toArray();
-      const stripePayments = await db.collection('StripePaymentInfo').find({}).toArray();
-      
-      console.log("=== DATABASE DEBUG ===");
-      console.log("Orders collection:", orders.length, "documents");
-      console.log("Payments collection:", payments.length, "documents");
-      console.log("StripePaymentInfo collection:", stripePayments.length, "documents");
 
-      res.json({
-        orders: orders,
-        payments: payments,
-        stripePayments: stripePayments
-      });
-    } catch (error) {
-      console.error("Debug error:", error);
-      res.status(500).json({ error: error.message });
-    }
-  });
 
   // Test route
   router.get("/test", (req, res) => {
