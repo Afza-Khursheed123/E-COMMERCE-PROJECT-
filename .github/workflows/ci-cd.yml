@@ -61,11 +61,11 @@ jobs:
         run: aws sts get-caller-identity
       
       
-      - name: Test SSM connection to public EC2
+      - name: Test SSM connection to private backend EC2
         if: github.event_name == 'push'
         run: |
           aws ssm send-command \
             --region ap-south-1 \
-            --instance-ids i-0fee963f148c91dc7 \
+            --instance-ids i-094b779cdf837810c \
             --document-name AWS-RunShellScript \
-            --parameters 'commands=["echo CEA-SSM-TEST-SUCCESS"]'
+            --parameters 'commands=["echo CEA-PRIVATE-SSM-SUCCESS"]'
