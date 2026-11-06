@@ -59,3 +59,13 @@ jobs:
       - name: Verify AWS authentication
         if: github.event_name == 'push'
         run: aws sts get-caller-identity
+      
+      
+      - name: Test SSM connection to public EC2
+        if: github.event_name == 'push'
+        run: |
+          aws ssm send-command \
+            --region ap-south-1 \
+            --instance-ids i-0fee963f148c91dc7 \
+            --document-name AWS-RunShellScript \
+            --parameters 'commands=["echo CEA-SSM-TEST-SUCCESS"]'
