@@ -115,3 +115,57 @@ jobs:
 
           echo "Backend deployment timed out."
           exit 1
+    
+      - name: Deploy frontend to public EC2
+        if: github.event_name == 'push'
+        run: |
+          set -euo pipefail
+
+          SCRIPT_B64=$(base64 -w 0 thriftifyy/deploy-frontend.sh)
+
+          REMOTE_COMMAND="printf '%s' '$SCRIPT_B64' | base64 -d > /tmp/cea-deploy-frontend.sh && bash /tmp/cea-deploy-frontend.sh '$GITHUB_SHA'"
+
+          PARAMETERS=$(jq -n --arg cmd "$REMOTE_COMMAND" '{commands:[$cmd]}')
+
+          COMMAND_ID=$(aws ssm send-command \
+            --region ap-south-1 \
+            --instance-ids i-0fee963f148c91dc7 \
+            --document-name AWS-RunShellScript \
+            --parameters "$PARAMETERS" \
+            --query 'Command.CommandId' \
+            --output text)
+
+          echo "Frontend deployment started: $COMMAND_ID"
+
+          for i in $(seq 1 60); do
+            sleep 10
+
+            STATUS=$(aws ssm get-command-invocation \
+              --region ap-south-1 \
+              --command-id "$COMMAND_ID" \
+              --instance-id i-0fee963f148c91dc7 \
+              --query Status \
+              --output text)
+
+            echo "Frontend deployment status: $STATUS"
+
+            if [ "$STATUS" = "Success" ]; then
+              echo "Frontend deployed successfully!"
+              exit 0
+            fi
+
+            case "$STATUS" in
+              Failed|Cancelled|TimedOut|Cancelling)
+                aws ssm get-command-invocation \
+                  --region ap-south-1 \
+                  --command-id "$COMMAND_ID" \
+                  --instance-id i-0fee963f148c91dc7 \
+                  --query '{Status:Status,Details:StatusDetails,ExitCode:ResponseCode}' \
+                  --output json
+                exit 1
+                ;;
+            esac
+          done
+
+          echo "Frontend deployment timed out."
+          exit 1
