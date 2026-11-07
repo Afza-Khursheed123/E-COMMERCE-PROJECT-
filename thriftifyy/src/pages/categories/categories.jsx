@@ -165,7 +165,7 @@ function Categories() {
                                 type="text"
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
-                                placeholder="Search categories..."
+                                placeholder="Search categories()checking ci-cd..."
                                 style={{
                                     width: '100%',
                                     padding: '12px 16px 12px 44px',
