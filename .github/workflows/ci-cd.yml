@@ -61,18 +61,20 @@ jobs:
         run: aws sts get-caller-identity
       
       
-      - name: Test backend image pull through SSM
+      - name: Deploy backend to private EC2
         if: github.event_name == 'push'
         run: |
           COMMAND_ID=$(aws ssm send-command \
             --region ap-south-1 \
             --instance-ids i-094b779cdf837810c \
             --document-name AWS-RunShellScript \
-            --parameters 'commands=["docker pull ghcr.io/afza-khursheed123/e-commerce-backend:latest"]' \
+            --parameters '{"commands":["echo Backend deployment script will be connected next"]}' \
             --query 'Command.CommandId' \
             --output text)
 
           aws ssm wait command-executed \
             --region ap-south-1 \
+            --command-id "$COMMAND_ID" \
+            --instance-id i-094b779cdf837810c
             --command-id "$COMMAND_ID" \
             --instance-id i-094b779cdf837810c
