@@ -32,21 +32,7 @@ function UserDebug() {
 // <UserDebug />
 function App() {
   return (
- 
-  <>
-    <div style={{
-      position: "fixed",
-      bottom: "10px",
-      right: "10px",
-      background: "#16a34a",
-      color: "white",
-      padding: "6px 12px",
-      borderRadius: "6px",
-      zIndex: 99999,
-      fontSize: "12px"
-    }}>
-      CI/CD Verified - Frontend
-    </div>
+
 
     <Routes>
     <Routes>
@@ -75,7 +61,7 @@ function App() {
       <Route path="/signup" element={<Signup />} />
     </Routes>
     </Routes>
-    </>
+  
   );
 }
 
