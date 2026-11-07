@@ -61,20 +61,57 @@ jobs:
         run: aws sts get-caller-identity
       
       
+      
       - name: Deploy backend to private EC2
         if: github.event_name == 'push'
         run: |
+          set -euo pipefail
+
+          SCRIPT_B64=$(base64 -w 0 node-app/deploy-backend.sh)
+
+          REMOTE_COMMAND="printf '%s' '$SCRIPT_B64' | base64 -d > /tmp/cea-deploy-backend.sh && bash /tmp/cea-deploy-backend.sh '$GITHUB_SHA'"
+
+          PARAMETERS=$(jq -n --arg cmd "$REMOTE_COMMAND" '{commands:[$cmd]}')
+
           COMMAND_ID=$(aws ssm send-command \
             --region ap-south-1 \
             --instance-ids i-094b779cdf837810c \
             --document-name AWS-RunShellScript \
-            --parameters '{"commands":["echo Backend deployment script will be connected next"]}' \
+            --parameters "$PARAMETERS" \
             --query 'Command.CommandId' \
             --output text)
 
-          aws ssm wait command-executed \
-            --region ap-south-1 \
-            --command-id "$COMMAND_ID" \
-            --instance-id i-094b779cdf837810c
-            --command-id "$COMMAND_ID" \
-            --instance-id i-094b779cdf837810c
+          echo "Backend deployment started: $COMMAND_ID"
+
+          for i in $(seq 1 60); do
+            sleep 10
+
+            STATUS=$(aws ssm get-command-invocation \
+              --region ap-south-1 \
+              --command-id "$COMMAND_ID" \
+              --instance-id i-094b779cdf837810c \
+              --query Status \
+              --output text)
+
+            echo "Deployment status: $STATUS"
+
+            if [ "$STATUS" = "Success" ]; then
+              echo "Backend deployed successfully!"
+              exit 0
+            fi
+
+            case "$STATUS" in
+              Failed|Cancelled|TimedOut|Cancelling)
+                aws ssm get-command-invocation \
+                  --region ap-south-1 \
+                  --command-id "$COMMAND_ID" \
+                  --instance-id i-094b779cdf837810c \
+                  --query '{Status:Status,Details:StatusDetails,ExitCode:ResponseCode}' \
+                  --output json
+                exit 1
+                ;;
+            esac
+          done
+
+          echo "Backend deployment timed out."
+          exit 1
