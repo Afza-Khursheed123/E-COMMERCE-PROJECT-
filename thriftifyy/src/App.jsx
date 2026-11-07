@@ -35,7 +35,6 @@ function App() {
 
 
     <Routes>
-    <Routes>
       <Route path="/" element={<Layout />}>
         <Route index element={<Home />} />
         <Route path="home" element={<Home />} />
@@ -59,7 +58,7 @@ function App() {
            <Route path="/admin/*" element={<AdminLayout />} />
    <Route path="/login" element={<Login />} />
       <Route path="/signup" element={<Signup />} />
-    </Routes>
+
     </Routes>
   
   );
