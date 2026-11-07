@@ -27,6 +27,14 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 const port = 3000;
+//ci-cd-check
+
+app.get("/ci-cd-check", (req, res) => {
+  res.json({
+    message: "Backend CI/CD Verified",
+    status: "success"
+  });
+});
 
 // Add this to your server.js or create a test route
 app.get('/api/debug/stripe', (req, res) => {
