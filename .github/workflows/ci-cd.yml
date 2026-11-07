@@ -235,3 +235,14 @@ jobs:
           done
 
           echo "All ASG frontend instances updated successfully!"
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Run backend automated tests
+        run: |
+          cd node-app
+          npm ci
+          npm test
