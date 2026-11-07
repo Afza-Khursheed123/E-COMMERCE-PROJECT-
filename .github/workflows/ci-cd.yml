@@ -169,3 +169,69 @@ jobs:
 
           echo "Frontend deployment timed out."
           exit 1
+
+
+
+      - name: Deploy frontend to ASG instances
+        if: github.event_name == 'push'
+        run: |
+          set -euo pipefail
+
+          INSTANCE_IDS=$(aws autoscaling describe-auto-scaling-groups \
+            --auto-scaling-group-names ecommerce-cea-frontend-asg \
+            --query 'AutoScalingGroups[0].Instances[?LifecycleState==`InService`].InstanceId' \
+            --output text)
+
+          if [ -z "$INSTANCE_IDS" ]; then
+            echo "No active ASG instances found."
+            exit 1
+          fi
+
+          SCRIPT_B64=$(base64 -w 0 thriftifyy/deploy-frontend.sh)
+          REMOTE_COMMAND="printf '%s' '$SCRIPT_B64' | base64 -d > /tmp/cea-deploy-frontend.sh && bash /tmp/cea-deploy-frontend.sh '$GITHUB_SHA'"
+          PARAMETERS=$(jq -n --arg cmd "$REMOTE_COMMAND" '{commands:[$cmd]}')
+
+          for INSTANCE_ID in $INSTANCE_IDS; do
+            echo "Deploying to $INSTANCE_ID"
+
+            COMMAND_ID=$(aws ssm send-command \
+              --region ap-south-1 \
+              --instance-ids "$INSTANCE_ID" \
+              --document-name AWS-RunShellScript \
+              --parameters "$PARAMETERS" \
+              --query 'Command.CommandId' \
+              --output text)
+
+            SUCCESS=false
+
+            for i in $(seq 1 60); do
+              sleep 10
+
+              STATUS=$(aws ssm get-command-invocation \
+                --region ap-south-1 \
+                --command-id "$COMMAND_ID" \
+                --instance-id "$INSTANCE_ID" \
+                --query Status \
+                --output text)
+
+              echo "$INSTANCE_ID: $STATUS"
+
+              if [ "$STATUS" = "Success" ]; then
+                SUCCESS=true
+                break
+              fi
+
+              case "$STATUS" in
+                Failed|Cancelled|TimedOut|Cancelling)
+                  exit 1
+                  ;;
+              esac
+            done
+
+            if [ "$SUCCESS" != true ]; then
+              echo "Deployment failed or timed out on $INSTANCE_ID"
+              exit 1
+            fi
+          done
+
+          echo "All ASG frontend instances updated successfully!"
