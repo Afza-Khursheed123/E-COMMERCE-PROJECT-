@@ -32,7 +32,7 @@ function UserDebug() {
 // <UserDebug />
 function App() {
   return (
-    return (
+ 
   <>
     <div style={{
       position: "fixed",
@@ -74,6 +74,8 @@ function App() {
    <Route path="/login" element={<Login />} />
       <Route path="/signup" element={<Signup />} />
     </Routes>
+    </Routes>
+    </>
   );
 }
 
